@@ -1,0 +1,36 @@
+# Agent Project Playbook Working Agreement
+
+## Truth order
+
+1. Current user instruction.
+2. Current repository files, tests, and command output.
+3. Published protocol and templates.
+4. Historical discussion as a clue only.
+
+## Repository purpose
+
+- Keep the core collaboration protocol model-agnostic.
+- Keep platform-specific behavior in explicit adapters.
+- Never publish personal paths, credentials, project memories, private logs, or another project's state.
+- Treat examples as examples, not inherited project facts.
+
+## Change rhythm
+
+1. Identify the protocol problem and observable failure it addresses.
+2. Update the canonical protocol before derived templates.
+3. Keep the initializer non-destructive and dry-run by default.
+4. Update tests for every installation or required-heading change.
+5. Run `python3 -m unittest discover -s tests -v` before delivery.
+
+## Scope discipline
+
+- One independently verifiable protocol slice per change.
+- Park unrelated adapters, visual polish, and distribution work.
+- Do not claim compatibility with an Agent platform until its adapter has been tested there.
+- Keep public documentation concise and free of project-specific history.
+
+## Release
+
+- Use semantic versions.
+- Record user-visible changes in GitHub Releases.
+- A release must state validation evidence and known compatibility limits.

@@ -1,0 +1,69 @@
+# 和 Agent 一起做项目：从模糊想法到稳定交付
+
+> 一套可以安装、迁移和持续迭代的人机项目协作章程。
+
+`agent-project-playbook` 帮助没有完整技术背景的人与 AI Agent 一起推进项目。用户可以只描述想法、感受和阻力；主 Agent 负责判断当前项目阶段、选择本轮交付物、形成问题单、切出可验收闭环，并组织所需专业能力完成交付。
+
+当前版本：`v0.1.0`
+
+## 核心工作流
+
+```text
+模糊想法
+→ Design Thinking
+→ 探索 / 启动 / 实施
+→ 项目阶段判断
+→ 本轮交付物
+→ 问题单
+→ 垂直切片
+→ 角色分发
+→ 测试、文档与交付闭环
+```
+
+这里的 Bug、UI、体验、重构、性能、数据、测试和部署属于“切片级分类”，不会代替项目阶段判断。新项目也不会默认直接进入编码。
+
+## 快速开始
+
+克隆仓库后，先做安全检查，不写文件：
+
+```bash
+python3 scripts/init_project.py /path/to/your-project --project-name your-project
+```
+
+确认报告后再安装：
+
+```bash
+python3 scripts/init_project.py /path/to/your-project --project-name your-project --apply
+```
+
+初始化器不会覆盖已有的 `AGENTS.md`、项目文档或本地 Skill。任一目标文件已存在时，整次安装都会保持零写入并要求人工合并，避免形成两套混合规则。
+
+## 仓库内容
+
+- [`docs/PROTOCOL.zh-CN.md`](docs/PROTOCOL.zh-CN.md)：完整协作章程。
+- [`docs/PORTABILITY.zh-CN.md`](docs/PORTABILITY.zh-CN.md)：Codex、其他 Agent 和通用提示词的适配边界。
+- [`templates/`](templates/)：项目规则、蓝图、架构、当前交接和文档维护 Skill。
+- [`skills/agent-project-bootstrap/`](skills/agent-project-bootstrap/)：可复用的项目启动 Skill。
+- [`scripts/init_project.py`](scripts/init_project.py)：默认 dry-run、明确确认后才写入的便携初始化器。
+
+CI 使用通用路径、邮箱、私钥和常见令牌模式检查公开文件，不维护或隐藏任何真实用户名、私有项目名和本机目录名单。
+
+## 设计原则
+
+1. 用户不需要先学会给任务分类。
+2. 每轮只推进一个可独立验收的垂直切片。
+3. 主 Agent 负责阶段判断、任务路由、整合和最终交付。
+4. 当前代码、测试和真实运行证据高于历史记忆。
+5. 不把一个项目的状态、凭据和失败经验自动带进另一个项目。
+
+## 兼容性
+
+核心章程与具体模型无关。当前版本直接提供通用 `AGENTS.md` 模板和 Agent Skills 格式的启动 Skill；Claude Code、WorkBuddy 等平台可能需要薄适配层，详见可移植性说明。
+
+## 参与迭代
+
+这个仓库会随着真实项目协作持续更新。建议把新增规则写成可验证的问题：它解决了什么混乱、触发条件是什么、如何判断它真的有效。
+
+## License
+
+[MIT](LICENSE)
