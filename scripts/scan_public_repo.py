@@ -40,13 +40,24 @@ def scan_text(text: str) -> list[str]:
 
 
 def tracked_files(root: Path) -> list[Path]:
-    result = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "-z"],
-        check=False,
-        capture_output=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z"],
+            check=False,
+            capture_output=True,
+        )
+    except FileNotFoundError as error:
+        raise ValueError(
+            "Git is required because this guard scans tracked public files only; "
+            "no recursive fallback is used"
+        ) from error
     if result.returncode != 0:
-        raise ValueError(result.stderr.decode("utf-8", errors="replace").strip())
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        message = (
+            "repository root must be a Git work tree because this guard scans tracked "
+            "public files only; no recursive fallback is used"
+        )
+        raise ValueError(f"{message}: {detail}" if detail else message)
     return [root / item.decode("utf-8") for item in result.stdout.split(b"\0") if item]
 
 

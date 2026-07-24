@@ -7,124 +7,86 @@ import argparse
 import re
 from pathlib import Path
 
-RULES = {
-    "en": {
-        "AGENTS.md": (
-            180,
+HEADING_CONTRACT = {
+    "AGENTS.md": (
+        180,
+        (
+            ("truth_order", "## Truth order", "## 真值顺序"),
+            ("collaboration_modes", "## Collaboration modes", "## 协作模式"),
+            ("design_thinking", "## Design Thinking mapping", "## Design Thinking 映射"),
             (
-                "## Truth order",
-                "## Collaboration modes",
-                "## Design Thinking mapping",
+                "task_routing",
                 "## Automatic two-level task routing",
-                "## Vertical slice discipline",
-                "## Multi-agent coordination",
-                "## Project rhythm",
-                "## Risk and verification",
-                "## Memory boundaries",
-            ),
-        ),
-        "docs/BLUEPRINT.md": (
-            160,
-            (
-                "## Purpose",
-                "## Users and use cases",
-                "## Current outcome",
-                "## Constraints and side-effect boundaries",
-                "## In scope",
-                "## Out of scope",
-                "## Acceptance",
-            ),
-        ),
-        "docs/ARCHITECTURE.md": (
-            220,
-            (
-                "## System shape",
-                "## Entry points",
-                "## Command map",
-                "## Important components",
-                "## Data flow",
-                "## High-risk areas",
-                "## Deployment and rollback",
-                "## Verification",
-            ),
-        ),
-        "docs/CURRENT_HANDOFF.md": (
-            120,
-            (
-                "## Current goal",
-                "## Active task framing",
-                "## Current vertical slice",
-                "## Role assignment",
-                "## Completed",
-                "## Verified",
-                "## Remaining",
-                "## Risks and blockers",
-                "## Parking lot",
-                "## Next action",
-            ),
-        ),
-    },
-    "zh-CN": {
-        "AGENTS.md": (
-            180,
-            (
-                "## 真值顺序",
-                "## 协作模式",
-                "## Design Thinking 映射",
                 "## 自动两级任务路由",
-                "## 垂直切片纪律",
-                "## 多 Agent 协作",
-                "## 项目节奏",
-                "## 风险与验证",
-                "## 记忆边界",
             ),
+            ("vertical_slice", "## Vertical slice discipline", "## 垂直切片纪律"),
+            ("multi_agent", "## Multi-agent coordination", "## 多 Agent 协作"),
+            ("project_rhythm", "## Project rhythm", "## 项目节奏"),
+            ("risk_verification", "## Risk and verification", "## 风险与验证"),
+            ("memory_boundaries", "## Memory boundaries", "## 记忆边界"),
         ),
-        "docs/BLUEPRINT.md": (
-            160,
+    ),
+    "docs/BLUEPRINT.md": (
+        160,
+        (
+            ("purpose", "## Purpose", "## 目的"),
+            ("users_use_cases", "## Users and use cases", "## 用户与使用场景"),
+            ("current_outcome", "## Current outcome", "## 当前成果"),
             (
-                "## 目的",
-                "## 用户与使用场景",
-                "## 当前成果",
+                "constraints_side_effects",
+                "## Constraints and side-effect boundaries",
                 "## 约束与外部副作用边界",
-                "## 范围内",
-                "## 范围外",
-                "## 验收",
             ),
+            ("in_scope", "## In scope", "## 范围内"),
+            ("out_of_scope", "## Out of scope", "## 范围外"),
+            ("acceptance", "## Acceptance", "## 验收"),
         ),
-        "docs/ARCHITECTURE.md": (
-            220,
-            (
-                "## 系统形态",
-                "## 入口",
-                "## 命令清单",
-                "## 重要组件",
-                "## 数据流",
-                "## 高风险区域",
-                "## 部署与回滚",
-                "## 验证",
-            ),
+    ),
+    "docs/ARCHITECTURE.md": (
+        220,
+        (
+            ("system_shape", "## System shape", "## 系统形态"),
+            ("entry_points", "## Entry points", "## 入口"),
+            ("command_map", "## Command map", "## 命令清单"),
+            ("important_components", "## Important components", "## 重要组件"),
+            ("data_flow", "## Data flow", "## 数据流"),
+            ("high_risk_areas", "## High-risk areas", "## 高风险区域"),
+            ("deployment_rollback", "## Deployment and rollback", "## 部署与回滚"),
+            ("verification", "## Verification", "## 验证"),
         ),
-        "docs/CURRENT_HANDOFF.md": (
-            120,
-            (
-                "## 当前目标",
-                "## 当前问题单",
-                "## 当前垂直切片",
-                "## 角色分配",
-                "## 已完成",
-                "## 已验证",
-                "## 剩余工作",
-                "## 风险与阻塞",
-                "## 停车区",
-                "## 下一步",
-            ),
+    ),
+    "docs/CURRENT_HANDOFF.md": (
+        120,
+        (
+            ("current_goal", "## Current goal", "## 当前目标"),
+            ("active_task", "## Active task framing", "## 当前问题单"),
+            ("current_slice", "## Current vertical slice", "## 当前垂直切片"),
+            ("role_assignment", "## Role assignment", "## 角色分配"),
+            ("completed", "## Completed", "## 已完成"),
+            ("verified", "## Verified", "## 已验证"),
+            ("remaining", "## Remaining", "## 剩余工作"),
+            ("risks_blockers", "## Risks and blockers", "## 风险与阻塞"),
+            ("parking_lot", "## Parking lot", "## 停车区"),
+            ("next_action", "## Next action", "## 下一步"),
         ),
-    },
+    ),
+}
+
+LANGUAGE_HEADING_INDEX = {"en": 1, "zh-CN": 2}
+RULES = {
+    language: {
+        relative: (
+            line_limit,
+            tuple(section[index] for section in sections),
+        )
+        for relative, (line_limit, sections) in HEADING_CONTRACT.items()
+    }
+    for language, index in LANGUAGE_HEADING_INDEX.items()
 }
 
 
 def has_project_anchor(path: Path) -> bool:
-    return (path / "AGENTS.md").is_file() or (path / "docs").is_dir()
+    return (path / "AGENTS.md").is_file() and (path / "docs" / "CURRENT_HANDOFF.md").is_file()
 
 
 def find_project_root(explicit_root: str | None = None) -> Path:
@@ -146,7 +108,7 @@ def find_project_root(explicit_root: str | None = None) -> Path:
 
     raise ValueError(
         "could not locate the project root; pass --project-root or run inside a project "
-        "containing AGENTS.md and docs/BLUEPRINT.md"
+        "containing AGENTS.md and docs/CURRENT_HANDOFF.md"
     )
 
 
