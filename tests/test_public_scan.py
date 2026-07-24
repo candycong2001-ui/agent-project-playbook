@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from scripts.scan_public_repo import scan_repository, scan_text
 
@@ -37,6 +38,20 @@ class PublicScanTests(unittest.TestCase):
             untracked.write_text("contact: person@" + "real-company.com\n", encoding="utf-8")
 
             self.assertEqual(scan_repository(root), [])
+
+    def test_non_git_directory_fails_closed_with_clear_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(ValueError, "Git work tree"):
+                scan_repository(Path(temporary))
+
+    def test_missing_git_binary_fails_closed_with_clear_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            with mock.patch(
+                "scripts.scan_public_repo.subprocess.run",
+                side_effect=FileNotFoundError("git"),
+            ):
+                with self.assertRaisesRegex(ValueError, "Git is required"):
+                    scan_repository(Path(temporary))
 
 
 if __name__ == "__main__":

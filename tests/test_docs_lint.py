@@ -13,8 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 INITIALIZER = ROOT / "scripts" / "init_project.py"
 SOURCE_LINTER = ROOT / "templates" / "skills" / "project-docs" / "scripts" / "docs_lint.py"
 LINTER_NAMESPACE = runpy.run_path(str(SOURCE_LINTER))
+HEADING_CONTRACT = LINTER_NAMESPACE["HEADING_CONTRACT"]
 RULES = LINTER_NAMESPACE["RULES"]
 EXTRACT_H2 = LINTER_NAMESPACE["extract_h2"]
+LINT_PROJECT = LINTER_NAMESPACE["lint_project"]
 
 
 def run(command: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -85,6 +87,21 @@ class DocsLintTests(unittest.TestCase):
                     text = (template_root / relative).read_text(encoding="utf-8")
                     self.assertEqual(EXTRACT_H2(text), required_headings)
 
+    def test_bilingual_rules_share_one_semantic_heading_contract(self) -> None:
+        self.assertEqual(RULES["en"].keys(), RULES["zh-CN"].keys())
+        for relative, (line_limit, sections) in HEADING_CONTRACT.items():
+            with self.subTest(relative=relative):
+                en_limit, en_headings = RULES["en"][relative]
+                zh_limit, zh_headings = RULES["zh-CN"][relative]
+                semantic_keys = tuple(section[0] for section in sections)
+
+                self.assertEqual(en_limit, line_limit)
+                self.assertEqual(zh_limit, line_limit)
+                self.assertEqual(len(semantic_keys), len(set(semantic_keys)))
+                self.assertEqual(len(en_headings), len(zh_headings))
+                self.assertEqual(en_headings, tuple(section[1] for section in sections))
+                self.assertEqual(zh_headings, tuple(section[2] for section in sections))
+
     def test_installed_linter_finds_project_from_non_project_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -95,6 +112,23 @@ class DocsLintTests(unittest.TestCase):
             install_project(project)
 
             result = run_installed_lint(project, cwd=outside)
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_auto_detection_skips_intermediate_docs_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            nested = project / "workspace"
+            orphan_docs = nested / "docs"
+            copied_linter = nested / "tools" / "docs_lint.py"
+            project.mkdir()
+            orphan_docs.mkdir(parents=True)
+            copied_linter.parent.mkdir()
+            install_project(project)
+            shutil.copy2(SOURCE_LINTER, copied_linter)
+
+            result = run([sys.executable, str(copied_linter)], cwd=nested)
 
             self.assertEqual(result.returncode, 0, result.stdout)
 
@@ -139,6 +173,29 @@ class DocsLintTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 1, result.stdout)
             self.assertIn("too long: docs/BLUEPRINT.md", result.stdout)
+
+    def test_lint_project_returns_structured_errors_directly(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            install_project(project)
+            blueprint = project / "docs" / "BLUEPRINT.md"
+            blueprint.write_text(
+                blueprint.read_text(encoding="utf-8").replace("## Purpose", "")
+                + "\n## Acceptance\n",
+                encoding="utf-8",
+            )
+
+            errors, warnings = LINT_PROJECT(project, "en")
+
+            self.assertIn("missing heading: docs/BLUEPRINT.md: ## Purpose", errors)
+            self.assertIn("duplicate heading: docs/BLUEPRINT.md: ## Acceptance", errors)
+            self.assertEqual(
+                warnings,
+                [
+                    "ARCHITECTURE still contains unverified placeholders",
+                    "CURRENT_HANDOFF has not been activated yet",
+                ],
+            )
 
     def test_similar_heading_does_not_satisfy_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

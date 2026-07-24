@@ -37,8 +37,8 @@ ruff format --check .
 
 - `templates/` 是英文模板。
 - `templates/zh-CN/` 是中文模板。
-- 修改任一必需标题时，必须同步 `docs_lint.py` 中对应语言的 `RULES`。
-- 契约测试会比较所有模板二级标题与 `RULES`，避免静默漂移。
+- 修改任一必需标题时，必须同步 `docs_lint.py` 中唯一的 `HEADING_CONTRACT` 语义映射。
+- `RULES` 从该映射生成；契约测试会同时核对双语逐项对应关系与模板二级标题，避免静默漂移。
 - 机器路径、Skill 名称和命令保持英文，不翻译代码标识。
 
 ## 4. 兼容性声明
