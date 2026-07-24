@@ -20,7 +20,7 @@
 2. Update the canonical protocol before derived templates.
 3. Keep the initializer non-destructive and dry-run by default.
 4. Update tests for every installation or required-heading change.
-5. Run `python3 -m unittest discover -s tests -v` before delivery.
+5. Run every validation command listed in `CONTRIBUTING.md` before delivery.
 
 ## Scope discipline
 

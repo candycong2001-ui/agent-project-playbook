@@ -1,0 +1,45 @@
+name: 问题与协议改进
+description: 报告真实协作问题，或提出可以验证的规则改进
+title: "[改进] "
+labels: []
+body:
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 当前证据
+      description: 实际发生了什么？请删除个人信息、凭据和私有项目内容。
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 推断的问题
+      description: 现有规则为什么没有避免这个问题？
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 怎样证明改进真的有效？
+    validations:
+      required: true
+  - type: textarea
+    id: slice
+    attributes:
+      label: 最小切片
+      description: 这次最小需要修改什么？
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: 暂不处理
+      description: 哪些相关内容不进入本次改进？
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 公开安全
+      options:
+        - label: 我已删除个人路径、真实邮箱、token、凭据和私有项目内容。
+          required: true

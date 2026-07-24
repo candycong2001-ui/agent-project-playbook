@@ -7,20 +7,33 @@ import argparse
 import os
 from pathlib import Path
 
-
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_ROOT = SOURCE_ROOT / "templates"
 
-FILES = {
-    Path("AGENTS.md"): TEMPLATE_ROOT / "AGENTS.md",
-    Path("docs/BLUEPRINT.md"): TEMPLATE_ROOT / "docs" / "BLUEPRINT.md",
-    Path("docs/ARCHITECTURE.md"): TEMPLATE_ROOT / "docs" / "ARCHITECTURE.md",
-    Path("docs/CURRENT_HANDOFF.md"): TEMPLATE_ROOT / "docs" / "CURRENT_HANDOFF.md",
-    Path(".agents/skills/project-docs/SKILL.md"): TEMPLATE_ROOT / "skills" / "project-docs" / "SKILL.md",
-    Path(".agents/skills/project-docs/scripts/docs_lint.py"): (
-        TEMPLATE_ROOT / "skills" / "project-docs" / "scripts" / "docs_lint.py"
-    ),
-}
+DESTINATIONS = (
+    Path("AGENTS.md"),
+    Path("docs/BLUEPRINT.md"),
+    Path("docs/ARCHITECTURE.md"),
+    Path("docs/CURRENT_HANDOFF.md"),
+    Path(".agents/skills/project-docs/SKILL.md"),
+    Path(".agents/skills/project-docs/scripts/docs_lint.py"),
+)
+
+
+def template_files(locale: str) -> dict[Path, Path]:
+    localized_root = TEMPLATE_ROOT if locale == "en" else TEMPLATE_ROOT / locale
+    return {
+        Path("AGENTS.md"): localized_root / "AGENTS.md",
+        Path("docs/BLUEPRINT.md"): localized_root / "docs" / "BLUEPRINT.md",
+        Path("docs/ARCHITECTURE.md"): localized_root / "docs" / "ARCHITECTURE.md",
+        Path("docs/CURRENT_HANDOFF.md"): localized_root / "docs" / "CURRENT_HANDOFF.md",
+        Path(".agents/skills/project-docs/SKILL.md"): (
+            localized_root / "skills" / "project-docs" / "SKILL.md"
+        ),
+        Path(".agents/skills/project-docs/scripts/docs_lint.py"): (
+            TEMPLATE_ROOT / "skills" / "project-docs" / "scripts" / "docs_lint.py"
+        ),
+    }
 
 
 def render(template: Path, project_name: str) -> str:
@@ -54,6 +67,7 @@ def exclusive_write(destination: Path, content: str) -> None:
 def print_report(
     project_root: Path,
     project_name: str,
+    locale: str,
     mode: str,
     created: list[str],
     blocked: list[str],
@@ -62,6 +76,7 @@ def print_report(
     print()
     print(f"- project_root: `{project_root}`")
     print(f"- project_name: `{project_name}`")
+    print(f"- locale: `{locale}`")
     print(f"- mode: `{mode}`")
     print()
     print("## Created")
@@ -80,6 +95,12 @@ def main() -> int:
     parser.add_argument("project_root", help="Existing project directory")
     parser.add_argument("--project-name", help="Project name; defaults to directory name")
     parser.add_argument(
+        "--locale",
+        choices=("en", "zh-CN"),
+        default="en",
+        help="Generated document language; defaults to en for backward compatibility",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Write the full file set when no target exists. Otherwise only show the plan.",
@@ -91,14 +112,15 @@ def main() -> int:
         parser.error(f"project directory does not exist: {project_root}")
 
     project_name = args.project_name or project_root.name
-    missing_templates = [str(path) for path in FILES.values() if not path.exists()]
+    files = template_files(args.locale)
+    missing_templates = [str(path) for path in files.values() if not path.exists()]
     if missing_templates:
         parser.error(f"repository templates are missing: {', '.join(missing_templates)}")
 
     destinations: dict[Path, Path] = {}
     blocked: list[str] = []
 
-    for relative in FILES:
+    for relative in DESTINATIONS:
         try:
             destination = validate_destination(project_root, relative)
         except ValueError as error:
@@ -110,21 +132,21 @@ def main() -> int:
 
     mode = "apply" if args.apply else "dry-run"
     if blocked:
-        print_report(project_root, project_name, mode, [], blocked)
+        print_report(project_root, project_name, args.locale, mode, [], blocked)
         print()
         print("No files were written. Merge the existing or unsafe paths manually.")
         return 3
 
     if not args.apply:
-        created = [f"DRY-RUN {relative}" for relative in FILES]
-        print_report(project_root, project_name, mode, created, [])
+        created = [f"DRY-RUN {relative}" for relative in DESTINATIONS]
+        print_report(project_root, project_name, args.locale, mode, created, [])
         print()
         print("Review this plan, then rerun with `--apply` to write missing files.")
         return 0
 
     created_paths: list[Path] = []
     try:
-        for relative, template in FILES.items():
+        for relative, template in files.items():
             destination = destinations[relative]
             destination.parent.mkdir(parents=True, exist_ok=True)
             validate_destination(project_root, relative)
@@ -135,13 +157,13 @@ def main() -> int:
     except (OSError, ValueError) as error:
         for path in reversed(created_paths):
             path.unlink(missing_ok=True)
-        print_report(project_root, project_name, mode, [], [str(error)])
+        print_report(project_root, project_name, args.locale, mode, [], [str(error)])
         print()
         print("Installation stopped and files created by this run were rolled back.")
         return 4
 
-    created = [str(relative) for relative in FILES]
-    print_report(project_root, project_name, mode, created, [])
+    created = [str(relative) for relative in DESTINATIONS]
+    print_report(project_root, project_name, args.locale, mode, created, [])
     return 0
 
 

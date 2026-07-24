@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 INITIALIZER = ROOT / "scripts" / "init_project.py"
@@ -36,7 +34,11 @@ def run(command: list[str], cwd: Path | None = None) -> subprocess.CompletedProc
     )
 
 
-def initialize(project: Path, *extra: str) -> subprocess.CompletedProcess[str]:
+def initialize(
+    project: Path,
+    *extra: str,
+    locale: str = "en",
+) -> subprocess.CompletedProcess[str]:
     return run(
         [
             sys.executable,
@@ -44,6 +46,8 @@ def initialize(project: Path, *extra: str) -> subprocess.CompletedProcess[str]:
             str(project),
             "--project-name",
             "demo-project",
+            "--locale",
+            locale,
             *extra,
         ]
     )
@@ -51,13 +55,15 @@ def initialize(project: Path, *extra: str) -> subprocess.CompletedProcess[str]:
 
 class InitProjectTests(unittest.TestCase):
     def test_dry_run_writes_nothing(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            project = Path(temporary)
-            result = initialize(project)
+        for locale in ("en", "zh-CN"):
+            with self.subTest(locale=locale), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                result = initialize(project, locale=locale)
 
-            self.assertEqual(result.returncode, 0, result.stdout)
-            self.assertIn("- mode: `dry-run`", result.stdout)
-            self.assertFalse(any(project.iterdir()))
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertIn(f"- locale: `{locale}`", result.stdout)
+                self.assertIn("- mode: `dry-run`", result.stdout)
+                self.assertFalse(any(project.iterdir()))
 
     def test_apply_creates_complete_playbook_and_lint_passes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -73,11 +79,38 @@ class InitProjectTests(unittest.TestCase):
             self.assertIn("## Design Thinking mapping", agents)
             self.assertIn("## Automatic two-level task routing", agents)
 
+            skill = (project / ".agents/skills/project-docs/SKILL.md").read_text(encoding="utf-8")
+            self.assertTrue(skill.startswith("---\nname: project-docs\n"))
+
             handoff = (project / "docs/CURRENT_HANDOFF.md").read_text(encoding="utf-8")
             self.assertIn("Collaboration mode:", handoff)
             self.assertIn("Project stage:", handoff)
             self.assertIn("Current deliverable:", handoff)
             self.assertIn("Role assignment", handoff)
+
+            lint = run(
+                [sys.executable, ".agents/skills/project-docs/scripts/docs_lint.py"],
+                cwd=project,
+            )
+            self.assertEqual(lint.returncode, 0, lint.stdout)
+            self.assertIn("Docs Lint: 0 error(s)", lint.stdout)
+
+    def test_zh_cn_apply_creates_localized_playbook_and_lint_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            result = initialize(project, "--apply", locale="zh-CN")
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            agents = (project / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("# demo-project 项目协作约定", agents)
+            self.assertIn("## Design Thinking 映射", agents)
+            self.assertIn("## 自动两级任务路由", agents)
+
+            handoff = (project / "docs/CURRENT_HANDOFF.md").read_text(encoding="utf-8")
+            self.assertIn("协作模式：", handoff)
+            self.assertIn("项目阶段：", handoff)
+            self.assertIn("本轮交付物：", handoff)
+            self.assertIn("## 角色分配", handoff)
 
             lint = run(
                 [sys.executable, ".agents/skills/project-docs/scripts/docs_lint.py"],
@@ -115,27 +148,6 @@ class InitProjectTests(unittest.TestCase):
             self.assertIn("symbolic link is not allowed", result.stdout)
             self.assertFalse(any(outside.iterdir()))
             self.assertFalse((project / "AGENTS.md").exists())
-
-    def test_public_files_do_not_contain_sensitive_artifacts(self) -> None:
-        sensitive_patterns = {
-            "user home path": re.compile(r"/(?:Users|home)/[^/\s\"']+/"),
-            "private key": re.compile(r"-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----"),
-            "GitHub token": re.compile(
-                rf"\b(?:gh[pousr]_[A-Za-z0-9_]{{20,}}|{'github' + '_pat_'}[A-Za-z0-9_]{{20,}})"
-            ),
-            "API key": re.compile(r"\bsk-[A-Za-z0-9_-]{20,}"),
-            "email address": re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
-        }
-        public_files = [
-            path
-            for path in ROOT.rglob("*")
-            if path.is_file() and ".git" not in path.parts and "__pycache__" not in path.parts
-        ]
-
-        for path in public_files:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-            for label, pattern in sensitive_patterns.items():
-                self.assertIsNone(pattern.search(text), f"{label} found in {path}")
 
 
 if __name__ == "__main__":

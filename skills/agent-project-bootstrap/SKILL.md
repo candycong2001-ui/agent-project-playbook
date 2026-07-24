@@ -7,11 +7,11 @@ description: Bootstrap the Agent Project Playbook into a user-selected project w
 
 ## Procedure
 
-1. Confirm the target project root and project name.
-2. Run `python3 scripts/init_project.py <path> --project-name <name>` from this repository.
+1. Confirm the target project root, project name, and document locale (`en` or `zh-CN`).
+2. Run `python3 scripts/init_project.py <path> --project-name <name> --locale <locale>` from this repository.
 3. Review the dry-run report with the user.
 4. If the target already has equivalent rules or documents, stop and prepare a manual merge plan.
-5. Apply only after explicit confirmation with `--apply`.
+5. Apply only after explicit confirmation with the same locale and `--apply`.
 6. Activate the generated documents using current repository evidence, keeping collaboration mode and project lifecycle stage as separate fields.
 7. Mark unverified commands, deployment paths, and risks instead of guessing.
 8. Run the installed Docs Lint before handing implementation work back.
