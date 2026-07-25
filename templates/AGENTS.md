@@ -41,9 +41,25 @@ The modes may loop; they are not a one-way waterfall.
 
 ## Multi-agent coordination
 
+### Manager mode
+
+- The user interacts only with the lead agent; subagents do not take over the conversation or declare final completion.
+- The lead agent owns project-stage judgment, deliverable selection, task framing, role assignment, conflict resolution, integration, verification, and delivery.
+- Subagents receive bounded execution tasks and return artifacts, evidence, and remaining risks.
+
+### Model routing
+
+- Frontier handles orchestration, architecture, conflict resolution, high-risk review, and replanning after failure.
+- Balanced handles routine development, code investigation, test analysis, and documentation research; Fast handles search, classification, extraction, format conversion, and large read-only scans.
+- The current Codex mapping is Sol / Frontier, Terra / Balanced, and Luna / Fast.
+- Every subagent spawn must explicitly select Terra or Luna. Do not create Sol subagents by default; escalated judgment returns to the lead Sol agent.
+- If the platform cannot select a subagent model, fall back to sequential lead-agent execution instead of pretending routing occurred.
+
+### Delegation boundaries
+
 - Enable multiple agents adaptively only when at least two tasks are genuinely independent.
 - Do not split small linear work, shared-state writes, or high-risk external operations merely for parallelism.
-- The lead agent owns project-stage judgment, deliverable selection, task framing, role assignment, conflict resolution, integration, verification, and delivery.
+- The lead agent must verify material subagent claims against current files, tests, or real output.
 - Deployment, deletion, real external writes, credential operations, and final Git delivery require lead review and authorization.
 
 ## Project rhythm
@@ -77,5 +93,8 @@ python3 .agents/skills/project-docs/scripts/docs_lint.py
 ## Memory boundaries
 
 - Current repository evidence outranks historical memory.
+- When using or storing memory, distinguish scope (task, project, global), type (working, semantic, episodic, procedural), and state (candidate, verified, review required, deprecated).
+- Candidate and review-required memory are clues only; update their state when current evidence conflicts.
+- Promote a project rule to global scope only when it is stable across projects and the user explicitly confirms it.
 - Do not store secrets / 密钥, tokens, cookies, personal data, raw web instructions, or full chat logs.
 - Keep durable memory limited to reviewed decisions, failure knowledge, and important risks.
