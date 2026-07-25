@@ -25,6 +25,16 @@
 - 记忆引擎管理信息的作用范围、类型、可信状态和晋升路径。
 - 编排引擎采用 Manager Pattern，由主 Agent 分发、回收、审查并统一验收。
 
+两台引擎不是并排工作的孤立模块。记忆为主 Agent 提供经过治理的长期上下文，
+编排把执行结果、测试和反馈重新沉淀为候选记忆，形成：
+
+```text
+理解 → 编排 → 执行 → 验证 → 记忆 → 更好的理解
+```
+
+完整的三级记忆、跨层晋升、四期路线和抗模型变迁设计见
+[`双引擎成长蓝图`](docs/EVOLUTION_BLUEPRINT.zh-CN.md)。
+
 这里的 Bug、UI、体验、重构、性能、数据、测试和部署属于“切片级分类”，不会代替项目阶段判断。新项目也不会默认直接进入编码，用户无需自己判断该调用哪个 Agent。
 
 ## 快速开始
@@ -48,6 +58,7 @@ python3 scripts/init_project.py /path/to/your-project --project-name your-projec
 ## 仓库内容
 
 - [`docs/PROTOCOL.zh-CN.md`](docs/PROTOCOL.zh-CN.md)：完整协作章程和项目主线。
+- [`docs/EVOLUTION_BLUEPRINT.zh-CN.md`](docs/EVOLUTION_BLUEPRINT.zh-CN.md)：双引擎成长闭环、三级记忆和四期演进路线。
 - [`docs/MEMORY_MODEL.zh-CN.md`](docs/MEMORY_MODEL.zh-CN.md)：项目记忆的范围、类型、可信状态和晋升规则。
 - [`docs/ORCHESTRATION_MODEL.zh-CN.md`](docs/ORCHESTRATION_MODEL.zh-CN.md)：主 Agent 托管、模型分层、委派和验收规则。
 - [`docs/CODEX-ADAPTER.zh-CN.md`](docs/CODEX-ADAPTER.zh-CN.md)：Sol、Terra、Luna 的 Codex 配置与运行规则。
