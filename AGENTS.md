@@ -29,6 +29,14 @@
 - Do not claim compatibility with an Agent platform until its adapter has been tested there.
 - Keep public documentation concise and free of project-specific history.
 
+## Manager mode
+
+- The user interacts only with the lead Agent; subagents do not take over the conversation or declare final completion.
+- Use Sol / Frontier for orchestration, architecture, conflict resolution, high-risk review, and replanning.
+- Explicitly select Terra / Balanced for routine development and analysis, or Luna / Fast for bounded scans and extraction.
+- Do not create Sol subagents by default; escalated judgment returns to the lead Sol Agent.
+- Verify material subagent claims against current repository evidence before integration or delivery.
+
 ## Release
 
 - Use semantic versions.
