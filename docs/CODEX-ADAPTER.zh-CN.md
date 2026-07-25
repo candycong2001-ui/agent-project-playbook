@@ -49,6 +49,30 @@ default_subagent_reasoning_effort = "medium"
 
 兜底配置不能替代显式路由。每次委派仍应明确指定 Terra 或 Luna。
 
+### 严格配置排障
+
+`--strict-config` 会让当前 Codex CLI 拒绝它不认识的配置字段。如果严格校验因
+`[network]` 等既有字段失败，但普通模式可以正常加载，这通常表示桌面端与 CLI
+版本的配置 schema 不一致，不等于多 Agent 配置失效。
+
+- 不要仅为了通过严格校验就删除未知字段；先确认字段由哪个 Codex 表面或版本管理。
+- 验证本文配置片段时，使用隔离调用，避免真实用户配置中的其他字段干扰。
+- 隔离调用仍复用 `CODEX_HOME` 中的认证信息，但不会加载其中的 `config.toml`。
+
+```bash
+codex exec --ignore-user-config --strict-config \
+  -c 'model="gpt-5.6-sol"' \
+  -c 'agents.enabled=true' \
+  -c 'agents.default_subagent_model="gpt-5.6-terra"' \
+  -c 'agents.default_subagent_reasoning_effort="medium"' \
+  --ephemeral --sandbox read-only \
+  'Return only CODEX_STRICT_CONFIG_OK.'
+```
+
+如果隔离调用通过，而真实配置仍被严格模式拒绝，应保留普通可用配置并记录版本差异；
+不要把删除未知字段作为默认修复。判断隔离调用时以退出码和末尾的
+`CODEX_STRICT_CONFIG_OK` 为准；模型列表刷新警告不等于配置 schema 校验失败。
+
 ## 4. 运行时路由
 
 ```text

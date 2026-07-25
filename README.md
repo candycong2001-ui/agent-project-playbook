@@ -4,7 +4,7 @@
 
 `agent-project-playbook` 帮助没有完整技术背景的人与 AI Agent 一起推进项目。用户可以只描述想法、感受和阻力，并且只需要与主 Agent 保持一条对话线；主 Agent 负责判断项目阶段、选择本轮交付物、形成问题单、组织后台专业能力、审查结果并完成交付。
 
-当前版本：`v0.2.0`
+当前版本：`v0.2.1`
 
 ## 核心工作流
 
@@ -57,7 +57,10 @@ python3 scripts/init_project.py /path/to/your-project --project-name your-projec
 - [`skills/agent-project-bootstrap/`](skills/agent-project-bootstrap/)：可复用的项目启动 Skill。
 - [`scripts/init_project.py`](scripts/init_project.py)：默认 dry-run、明确确认后才写入的便携初始化器。
 
-CI 会直接检查中英文模板、初始化分发契约、Docs Lint、Ruff 和公开文件敏感模式。敏感扫描只读取 Git 跟踪文件，允许 `example.com` 等保留示例邮箱域名。`scan_public_repo.py` 是本仓库的发布自检工具，需要 Git，且不会随初始化器安装到目标项目；生成项目应按自己的发布流程配置密钥扫描。
+CI 会直接检查中英文模板、初始化分发契约、记忆与编排模型契约、Docs Lint、Ruff
+和公开文件敏感模式。敏感扫描只读取 Git 跟踪文件，允许 `example.com`
+等保留示例邮箱域名。`scan_public_repo.py` 是本仓库的发布自检工具，需要 Git，
+且不会随初始化器安装到目标项目；生成项目应按自己的发布流程配置密钥扫描。
 
 ## 设计原则
 
