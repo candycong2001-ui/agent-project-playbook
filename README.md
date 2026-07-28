@@ -67,6 +67,7 @@ python3 scripts/init_project.py /path/to/your-project --project-name your-projec
 - [`templates/`](templates/)：项目规则、蓝图、架构、当前交接和文档维护 Skill。
 - [`skills/agent-project-bootstrap/`](skills/agent-project-bootstrap/)：可复用的项目启动 Skill。
 - [`scripts/init_project.py`](scripts/init_project.py)：默认 dry-run、明确确认后才写入的便携初始化器。
+- [`scripts/project_safety.py`](scripts/project_safety.py)：只读检查隔离契约，并以 dry-run 优先方式准备 `codex/*` 任务分支和独立 worktree；不执行部署、推送或外部写入。
 
 CI 会直接检查中英文模板、初始化分发契约、记忆与编排模型契约、Docs Lint、Ruff
 和公开文件敏感模式。敏感扫描只读取 Git 跟踪文件，允许 `example.com`

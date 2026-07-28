@@ -90,6 +90,16 @@ python3 .agents/skills/project-docs/scripts/docs_lint.py
 - Prefer dry-runs, backups, and rollback paths for high-risk work.
 - Do not claim completion without verification evidence.
 
+## Release isolation and environment safety
+
+- A formal project is one with a running service, shared mutable state, real credentials, external writes, or a production user. Feature, fix, configuration, and UI work for a formal project starts on a task branch in an independent worktree.
+- Keep development, test, staging, and production runtime data, ports, credentials, and write authority separate. Non-production work must not read or mutate production state by default.
+- `main` is reviewed source, not a deployment event. Production runs an identifiable immutable release or equivalent fixed version, changed only through an explicit deployment action.
+- Before production deployment, require relevant tests, staging acceptance when applicable, backup readiness, active-task checks, impact disclosure, explicit confirmation, and a known rollback target.
+- Keep code release and production-data migration as separately authorized high-risk slices. A code rollback preserves the newest production business data unless data restoration receives a separate explicit confirmation.
+- Small experiments or documentation-only repositories may mark production controls not applicable, but must record that classification in `docs/ARCHITECTURE.md`.
+- Use `python3 .agents/skills/project-docs/scripts/project_safety.py inspect .` for a read-only check. Run `start . task-name` first as a dry-run; add `--apply` only after reviewing the branch, base, and worktree path.
+
 ## Memory boundaries
 
 - Current repository evidence outranks historical memory.

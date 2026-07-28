@@ -16,6 +16,8 @@ State the single active goal.
 - Slice type: not classified.
 - Acceptance: not confirmed.
 - Risk: not classified.
+- Environment: development, test, staging, production, or not applicable; not classified.
+- Production impact: none, possible, or confirmed; not classified.
 - Explicit non-goals: not confirmed.
 
 ## Current vertical slice

@@ -15,7 +15,8 @@ description: Maintain this project's bounded BLUEPRINT, ARCHITECTURE, and CURREN
 6. Replace stale state; never append a session diary.
 7. Update `BLUEPRINT.md` only when product intent, users, scope, constraints, or acceptance change.
 8. Update `ARCHITECTURE.md` only when components, boundaries, data flow, commands, deployment, rollback, or operational risks change.
-9. Run `python3 .agents/skills/project-docs/scripts/docs_lint.py` before delivery.
+9. For a formal project, run `python3 .agents/skills/project-docs/scripts/project_safety.py inspect .` before starting implementation and before release handoff.
+10. Run `python3 .agents/skills/project-docs/scripts/docs_lint.py` before delivery.
 
 ## Truth and size discipline
 

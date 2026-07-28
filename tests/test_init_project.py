@@ -17,6 +17,7 @@ EXPECTED_FILES = (
     "docs/CURRENT_HANDOFF.md",
     ".agents/skills/project-docs/SKILL.md",
     ".agents/skills/project-docs/scripts/docs_lint.py",
+    ".agents/skills/project-docs/scripts/project_safety.py",
 )
 
 
@@ -78,6 +79,7 @@ class InitProjectTests(unittest.TestCase):
             self.assertIn("# demo-project Working Agreement", agents)
             self.assertIn("## Design Thinking mapping", agents)
             self.assertIn("## Automatic two-level task routing", agents)
+            self.assertIn("## Release isolation and environment safety", agents)
 
             skill = (project / ".agents/skills/project-docs/SKILL.md").read_text(encoding="utf-8")
             self.assertTrue(skill.startswith("---\nname: project-docs\n"))
@@ -87,6 +89,7 @@ class InitProjectTests(unittest.TestCase):
             self.assertIn("Project stage:", handoff)
             self.assertIn("Current deliverable:", handoff)
             self.assertIn("Role assignment", handoff)
+            self.assertIn("Production impact:", handoff)
 
             lint = run(
                 [sys.executable, ".agents/skills/project-docs/scripts/docs_lint.py"],
@@ -105,12 +108,14 @@ class InitProjectTests(unittest.TestCase):
             self.assertIn("# demo-project 项目协作约定", agents)
             self.assertIn("## Design Thinking 映射", agents)
             self.assertIn("## 自动两级任务路由", agents)
+            self.assertIn("## 发布隔离与环境安全", agents)
 
             handoff = (project / "docs/CURRENT_HANDOFF.md").read_text(encoding="utf-8")
             self.assertIn("协作模式：", handoff)
             self.assertIn("项目阶段：", handoff)
             self.assertIn("本轮交付物：", handoff)
             self.assertIn("## 角色分配", handoff)
+            self.assertIn("生产影响：", handoff)
 
             lint = run(
                 [sys.executable, ".agents/skills/project-docs/scripts/docs_lint.py"],
