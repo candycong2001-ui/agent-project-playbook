@@ -17,6 +17,7 @@ DESTINATIONS = (
     Path("docs/CURRENT_HANDOFF.md"),
     Path(".agents/skills/project-docs/SKILL.md"),
     Path(".agents/skills/project-docs/scripts/docs_lint.py"),
+    Path(".agents/skills/project-docs/scripts/project_safety.py"),
 )
 
 
@@ -32,6 +33,9 @@ def template_files(locale: str) -> dict[Path, Path]:
         ),
         Path(".agents/skills/project-docs/scripts/docs_lint.py"): (
             TEMPLATE_ROOT / "skills" / "project-docs" / "scripts" / "docs_lint.py"
+        ),
+        Path(".agents/skills/project-docs/scripts/project_safety.py"): (
+            SOURCE_ROOT / "scripts" / "project_safety.py"
         ),
     }
 
@@ -152,7 +156,7 @@ def main() -> int:
             validate_destination(project_root, relative)
             exclusive_write(destination, render(template, project_name))
             created_paths.append(destination)
-            if destination.name == "docs_lint.py":
+            if destination.name in {"docs_lint.py", "project_safety.py"}:
                 destination.chmod(0o755)
     except (OSError, ValueError) as error:
         for path in reversed(created_paths):

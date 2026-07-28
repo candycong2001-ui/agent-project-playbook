@@ -90,6 +90,16 @@ python3 .agents/skills/project-docs/scripts/docs_lint.py
 - 高风险工作优先 dry-run、备份和回滚路径。
 - 没有验证证据不得宣称完成。
 
+## 发布隔离与环境安全
+
+- 正式项目指存在运行服务、共享可变状态、真实凭据、外部写入或生产用户的项目。正式项目的功能、修复、配置和 UI 修改都从任务分支与独立 worktree 开始。
+- development、test、staging、production 的运行数据、端口、凭据和写权限必须分开；非生产工作默认不得读取或修改生产状态。
+- `main` 是已审核源码，不是部署事件。生产运行可识别的不可变 release 或等价固定版本，只有显式部署动作才能切换。
+- 生产部署前必须具备相关测试、适用时的预发布验收、备份、活动任务检查、影响说明、明确确认和已知回滚目标。
+- 代码 release 与生产数据迁移必须拆成两个单独授权的高风险切片。代码回滚默认保留最新生产业务数据；恢复旧数据需要另一次明确确认。
+- 小型实验或纯文档仓库可以把生产门禁标记为不适用，但必须在 `docs/ARCHITECTURE.md` 记录该分类。
+- 使用 `python3 .agents/skills/project-docs/scripts/project_safety.py inspect .` 做只读检查。先用 `start . task-name` 预览；核对分支、基线和 worktree 路径后才添加 `--apply`。
+
 ## 记忆边界
 
 - 当前仓库证据高于历史记忆。

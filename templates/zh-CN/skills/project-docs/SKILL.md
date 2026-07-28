@@ -15,7 +15,8 @@ description: 维护当前项目中有边界的 BLUEPRINT、ARCHITECTURE 和 CURR
 6. 替换过时状态，不追加会话流水。
 7. 只有产品意图、用户、范围、约束或验收变化时才更新 `BLUEPRINT.md`。
 8. 只有组件、边界、数据流、命令、部署、回滚或风险变化时才更新 `ARCHITECTURE.md`。
-9. 交付前运行 `python3 .agents/skills/project-docs/scripts/docs_lint.py`。
+9. 正式项目开始实施和发布交接前，运行 `python3 .agents/skills/project-docs/scripts/project_safety.py inspect .`。
+10. 交付前运行 `python3 .agents/skills/project-docs/scripts/docs_lint.py`。
 
 ## 真值与大小限制
 
