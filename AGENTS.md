@@ -35,6 +35,9 @@
 - Use Sol / Frontier for orchestration, architecture, conflict resolution, high-risk review, and replanning.
 - Explicitly select Terra / Balanced for routine development and analysis, or Luna / Fast for bounded scans and extraction.
 - Do not create Sol subagents by default; escalated judgment returns to the lead Sol Agent.
+- Treat `NO_DELEGATION` as a valid route. Delegate only when work is independent, materially beneficial, non-blocking, and cheaply verifiable.
+- Keep role, model tier, reasoning effort, and permission scope separate; stronger reasoning never grants wider authority.
+- Workers that exceed scope or risk return `ESCALATE_TO_MAIN` with evidence instead of expanding the task.
 - Verify material subagent claims against current repository evidence before integration or delivery.
 
 ## Release
