@@ -138,6 +138,7 @@ class OrchestrationContractTests(unittest.TestCase):
         protocol = read("docs/ORCHESTRATION_MODEL.zh-CN.md")
 
         self.assertIn("SPAWNING → UNMATERIALIZED → STOP_BATCH → DIRECT", protocol)
+        self.assertIn("STOP_BATCH → REPLAN", protocol)
         self.assertIn("TIMEOUT → RECLAIMED", protocol)
         self.assertIn("不得混淆", protocol)
 
@@ -150,6 +151,7 @@ class OrchestrationContractTests(unittest.TestCase):
             "no rollout found",
             "INIT_BLOCKED",
             "不批量重试",
+            "不得把 `project` 与 `projectless` 之间的环境类型切换当作同一故障的重试",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, adapter)
@@ -161,7 +163,10 @@ class OrchestrationContractTests(unittest.TestCase):
             "只在原 thread 追问一次",
             "FORK_COST_RISK",
             "thread_id",
+            "同一子目标最多两次实际执行机会",
+            "禁止无条件第三次创建或重派",
             "输出已经验证且结果已采纳",
+            "禁止并行连发归档请求",
             "未实体化、未验证、争议中或未采纳的 thread 不得归档",
         ):
             with self.subTest(required=required):

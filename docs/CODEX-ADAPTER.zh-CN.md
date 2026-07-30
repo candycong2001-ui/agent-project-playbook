@@ -125,7 +125,7 @@ codex exec --ignore-user-config --strict-config \
 
 | 观察到的状态 | 分类 | 主 Agent 处置 |
 | --- | --- | --- |
-| 创建超时且没有正式 thread ID、`not materialized yet` 或 `no rollout found` | `UNMATERIALIZED` | 停止本批派遣；不追问、不归档、不把临时 ID 当任务；主 Agent 直接完成或重新判断路线。 |
+| 创建超时且没有正式 thread ID、`not materialized yet` 或 `no rollout found` | `UNMATERIALIZED` | 停止本批派遣；不追问、不归档、不把临时 ID 当任务；主 Agent 直接完成或重新判断路线。不得把 `project` 与 `projectless` 之间的环境类型切换当作同一故障的重试；如需切换，必须以新的问题单重新经过委派价值闸。 |
 | 首个 Worker 在首条消息前超时，且当前证据指向 MCP、认证或启动初始化 | `INIT_BLOCKED` | 保存工具错误；先修复或停用已证实的阻塞项，再只重试一个健康探针，不批量重试。 |
 | thread 已实体化但结果不足 | `INSUFFICIENT_RESULT` | 只在原 thread 追问一次；仍不足时 `ESCALATE_TO_MAIN`，重新经过委派价值闸后才可显式升级模型或推理。 |
 | thread 已实体化后超时 | `TIMEOUT` | 进入 `TIMEOUT → RECLAIMED`；主 Agent 按同一问题单接管，不等待迟到结果阻塞交付。 |
@@ -137,8 +137,12 @@ codex exec --ignore-user-config --strict-config \
 ### 采纳与归档
 
 主 Agent 创建后立即记录 `thread_id`、角色、模型、推理强度、尝试次数和所有权；验收后补充
-状态、输出位置、是否采纳和是否归档。只有正式 thread 已完成或 idle、输出已经验证且结果已采纳时，
-才可以逐个归档。未实体化、未验证、争议中或未采纳的 thread 不得归档。
+状态、输出位置、是否采纳和是否归档。一次实际执行 session 计为一次尝试；同一子目标最多两次实际执行机会。
+原 thread 的一次追问属于原尝试，不新计一次；仍不足时，只有重新经过委派价值闸的显式重派
+或升级可使用第二次机会。此后由主 Agent 接管，禁止无条件第三次创建或重派。
+
+只有正式 thread 已完成或 idle、输出已经验证且结果已采纳时，才可以逐个归档。归档请求必须逐个发起
+并等待每次确认，禁止并行连发归档请求。未实体化、未验证、争议中或未采纳的 thread 不得归档。
 
 ## 7. 最小端到端验证
 
