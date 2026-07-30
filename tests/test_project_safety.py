@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -47,8 +48,8 @@ def git(root: Path, *arguments: str) -> str:
     return process.stdout.strip()
 
 
-def initialize_repo(root: Path) -> None:
-    git(root, "init", "-b", "main")
+def initialize_repo(root: Path, branch: str = "main") -> None:
+    git(root, "init", "-b", branch)
     git(root, "config", "user.email", "tester@example.com")
     git(root, "config", "user.name", "Test User")
     (root / "README.md").write_text("fixture\n", encoding="utf-8")
@@ -124,6 +125,34 @@ class ProjectSafetyTests(unittest.TestCase):
             self.assertFalse(payload["production_changed"])
             self.assertEqual(git(project, "branch", "--show-current"), "main")
 
+    def test_start_accepts_an_explicit_nondefault_base_ref(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            project.mkdir()
+            initialize_repo(project, branch="trunk")
+            base = git(project, "rev-parse", "trunk")
+
+            result = run(
+                "start",
+                str(project),
+                "safe-task",
+                "--base",
+                "trunk",
+                "--confirm-base",
+                base,
+                "--apply",
+                "--json",
+                home=root,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["base_ref"], "trunk")
+            self.assertEqual(
+                git(root / ".codex/worktrees/project-safe-task", "rev-parse", "HEAD"), base
+            )
+
     def test_start_rejects_existing_branch_and_unsafe_target(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
@@ -143,6 +172,7 @@ class ProjectSafetyTests(unittest.TestCase):
 
             self.assertEqual(existing.returncode, 3, existing.stdout)
             self.assertIn("task branch already exists", existing.stdout)
+            self.assertIn("cleanup", existing.stdout)
             self.assertEqual(unsafe.returncode, 3, unsafe.stdout)
             self.assertIn("unsafe managed worktree root", unsafe.stdout)
 
@@ -293,6 +323,99 @@ class ProjectSafetyTests(unittest.TestCase):
             self.assertTrue(payload["documentation_headings_present"])
             self.assertFalse(payload["physical_isolation_verified"])
             self.assertFalse(payload["production_release_ready"])
+
+    def test_cleanup_recovers_one_stale_worktree_without_pruning_other_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            target = root / ".codex/worktrees/project-safe-task"
+            other_target = root / ".codex/worktrees/project-other-task"
+            project.mkdir()
+            initialize_repo(project)
+            base = git(project, "rev-parse", "main")
+            created = run(
+                "start",
+                str(project),
+                "safe-task",
+                "--confirm-base",
+                base,
+                "--apply",
+                home=root,
+            )
+            self.assertEqual(created.returncode, 0, created.stdout)
+            other_created = run(
+                "start",
+                str(project),
+                "other-task",
+                "--confirm-base",
+                base,
+                "--apply",
+                home=root,
+            )
+            self.assertEqual(other_created.returncode, 0, other_created.stdout)
+            shutil.rmtree(target)
+            shutil.rmtree(other_target)
+
+            dry_run = run("cleanup", str(project), "safe-task", "--json", home=root)
+
+            self.assertEqual(dry_run.returncode, 0, dry_run.stdout)
+            payload = json.loads(dry_run.stdout)
+            self.assertFalse(payload["worktree_exists"])
+            self.assertTrue(payload["worktree_registered"])
+            self.assertTrue(payload["branch_exists"])
+            self.assertEqual(payload["cleanup_actions"], ["remove stale worktree registration"])
+
+            cleanup = run(
+                "cleanup",
+                str(project),
+                "safe-task",
+                "--delete-branch",
+                "--apply",
+                "--json",
+                home=root,
+            )
+
+            self.assertEqual(cleanup.returncode, 0, cleanup.stdout)
+            self.assertFalse(target.exists())
+            self.assertNotIn(str(target), git(project, "worktree", "list", "--porcelain"))
+            self.assertIn(str(other_target), git(project, "worktree", "list", "--porcelain"))
+            self.assertNotIn("codex/safe-task", git(project, "branch", "--list"))
+            restart = run("start", str(project), "safe-task", "--json", home=root)
+            self.assertEqual(restart.returncode, 0, restart.stdout)
+
+    def test_cleanup_refuses_an_unregistered_target_and_unmerged_branch_deletion(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            project.mkdir()
+            initialize_repo(project)
+            target = root / ".codex/worktrees/project-safe-task"
+            target.mkdir(parents=True)
+
+            unregistered = run("cleanup", str(project), "safe-task", "--apply", home=root)
+
+            self.assertEqual(unregistered.returncode, 3, unregistered.stdout)
+            self.assertIn("refusing to remove unregistered", unregistered.stdout)
+            target.rmdir()
+            git(project, "branch", "codex/safe-task")
+            git(project, "checkout", "codex/safe-task")
+            (project / "changes.md").write_text("unmerged\n", encoding="utf-8")
+            git(project, "add", "changes.md")
+            git(project, "commit", "-m", "unmerged task")
+            git(project, "checkout", "main")
+
+            unmerged = run(
+                "cleanup",
+                str(project),
+                "safe-task",
+                "--delete-branch",
+                "--apply",
+                home=root,
+            )
+
+            self.assertEqual(unmerged.returncode, 3, unmerged.stdout)
+            self.assertIn("not merged into current HEAD", unmerged.stdout)
+            self.assertIn("codex/safe-task", git(project, "branch", "--list"))
 
 
 if __name__ == "__main__":
