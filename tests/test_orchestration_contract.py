@@ -62,6 +62,8 @@ class OrchestrationContractTests(unittest.TestCase):
         self.assertIn("Terra / Balanced", agents)
         self.assertIn("Luna / Fast", agents)
         self.assertIn("Do not create Sol subagents by default", agents)
+        self.assertIn("Reserve capacity for verification", agents)
+        self.assertIn("exclusive ownership", agents)
 
     def test_orchestration_contract_guards_delegation_and_recovery(self) -> None:
         protocol = read("docs/ORCHESTRATION_MODEL.zh-CN.md")
@@ -102,6 +104,73 @@ class OrchestrationContractTests(unittest.TestCase):
                 self.assertIn(no_delegation, template)
                 self.assertIn(permission, template)
                 self.assertIn(escalation, template)
+
+    def test_canonical_protocol_requires_health_probe_and_reserved_capacity(self) -> None:
+        protocol = read("docs/ORCHESTRATION_MODEL.zh-CN.md")
+
+        self.assertIn("健康探针", protocol)
+        self.assertIn("reserved_slots", protocol)
+        self.assertIn("不得在核心协议中写死为某个数字", protocol)
+
+    def test_bilingual_templates_preserve_worker_ownership_and_adoption(self) -> None:
+        cases = (
+            (
+                "templates/AGENTS.md",
+                "exclusive file or module ownership",
+                "Workers do not spawn agents",
+                "verified and adopted its output",
+            ),
+            (
+                "templates/zh-CN/AGENTS.md",
+                "互斥的文件或模块",
+                "Worker 不得继续派遣",
+                "验证并采纳产物后",
+            ),
+        )
+        for relative, ownership, no_descendants, adoption in cases:
+            with self.subTest(relative=relative):
+                template = read(relative)
+                self.assertIn(ownership, template)
+                self.assertIn(no_descendants, template)
+                self.assertIn(adoption, template)
+
+    def test_canonical_protocol_separates_unmaterialized_from_timeout(self) -> None:
+        protocol = read("docs/ORCHESTRATION_MODEL.zh-CN.md")
+
+        self.assertIn("SPAWNING → UNMATERIALIZED → STOP_BATCH → DIRECT", protocol)
+        self.assertIn("STOP_BATCH → REPLAN", protocol)
+        self.assertIn("TIMEOUT → RECLAIMED", protocol)
+        self.assertIn("不得混淆", protocol)
+
+    def test_codex_adapter_classifies_unmaterialized_and_initialization_failures(self) -> None:
+        adapter = read("docs/CODEX-ADAPTER.zh-CN.md")
+
+        for required in (
+            "UNMATERIALIZED",
+            "not materialized yet",
+            "no rollout found",
+            "INIT_BLOCKED",
+            "不批量重试",
+            "不得把 `project` 与 `projectless` 之间的环境类型切换当作同一故障的重试",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, adapter)
+
+    def test_codex_adapter_limits_followup_and_archive_to_adopted_threads(self) -> None:
+        adapter = read("docs/CODEX-ADAPTER.zh-CN.md")
+
+        for required in (
+            "只在原 thread 追问一次",
+            "FORK_COST_RISK",
+            "thread_id",
+            "同一子目标最多两次实际执行机会",
+            "禁止无条件第三次创建或重派",
+            "输出已经验证且结果已采纳",
+            "禁止并行连发归档请求",
+            "未实体化、未验证、争议中或未采纳的 thread 不得归档",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, adapter)
 
 
 if __name__ == "__main__":

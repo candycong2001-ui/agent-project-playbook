@@ -37,6 +37,8 @@
 - Do not create Sol subagents by default; escalated judgment returns to the lead Sol Agent.
 - Treat `NO_DELEGATION` as a valid route. Delegate only when work is independent, materially beneficial, non-blocking, and cheaply verifiable.
 - Keep role, model tier, reasoning effort, and permission scope separate; stronger reasoning never grants wider authority.
+- Reserve capacity for verification, review, and recovery before fan-out; prove the first Worker is readable before creating later Workers.
+- Give writing Workers exclusive ownership, forbid descendant delegation, and archive only outputs the lead has verified and adopted.
 - Workers that exceed scope or risk return `ESCALATE_TO_MAIN` with evidence instead of expanding the task.
 - Verify material subagent claims against current repository evidence before integration or delivery.
 
