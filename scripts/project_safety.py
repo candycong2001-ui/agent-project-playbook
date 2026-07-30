@@ -99,7 +99,7 @@ def inspect_project(root: Path) -> dict[str, object]:
     }
 
 
-def managed_target(root: Path, task: str) -> tuple[Path, Path]:
+def managed_paths(root: Path, task: str) -> tuple[Path, Path]:
     home = Path.home().resolve()
     managed_root_raw = Path.home() / ".codex" / "worktrees"
     cursor = Path.home()
@@ -116,7 +116,12 @@ def managed_target(root: Path, task: str) -> tuple[Path, Path]:
     ):
         raise SafetyError(f"unsafe managed worktree root: {managed_root}")
     target = managed_root / f"{root.name}-{task}"
-    if target.exists():
+    return managed_root, target
+
+
+def managed_target(root: Path, task: str) -> tuple[Path, Path]:
+    managed_root, target = managed_paths(root, task)
+    if target.exists() or target.is_symlink():
         raise SafetyError(f"worktree target already exists: {target}")
     return managed_root, target
 
@@ -135,6 +140,25 @@ def local_branch_exists(root: Path, branch: str) -> bool:
     process = subprocess.run(
         ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
         cwd=root,
+        check=False,
+    )
+    return process.returncode == 0
+
+
+def registered_worktrees(root: Path) -> set[Path]:
+    return {
+        Path(line.removeprefix("worktree ")).resolve()
+        for line in run_git(root, "worktree", "list", "--porcelain").splitlines()
+        if line.startswith("worktree ")
+    }
+
+
+def branch_is_merged_into_head(root: Path, branch: str) -> bool:
+    process = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", branch, "HEAD"],
+        cwd=root,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         check=False,
     )
     return process.returncode == 0
@@ -159,7 +183,10 @@ def start_task(
         raise SafetyError(f"base confirmation mismatch; required --confirm-base {base_commit}")
     branch = f"codex/{task}"
     if local_branch_exists(root, branch):
-        raise SafetyError(f"task branch already exists: {branch}")
+        raise SafetyError(
+            f"task branch already exists: {branch}; inspect its managed worktree with "
+            f"cleanup {root} {task} before choosing whether to apply cleanup"
+        )
     remote_matches = remote_branch_matches(root, branch)
     if remote_matches:
         raise SafetyError(f"task branch already exists on a remote: {', '.join(remote_matches)}")
@@ -202,9 +229,68 @@ def start_task(
     return result
 
 
+def cleanup_task(
+    root: Path,
+    *,
+    task: str,
+    delete_branch: bool,
+    apply: bool,
+) -> dict[str, object]:
+    root = git_root(root)
+    if not TASK_SLUG.fullmatch(task):
+        raise SafetyError("task must use lowercase letters, digits, and hyphens; max 51 characters")
+    branch = f"codex/{task}"
+    _, target = managed_paths(root, task)
+    if target.is_symlink():
+        raise SafetyError(f"managed worktree target is a symbolic link: {target}")
+    worktree_exists = target.exists()
+    worktree_registered = target.resolve() in registered_worktrees(root)
+    branch_exists = local_branch_exists(root, branch)
+    remote_matches = remote_branch_matches(root, branch)
+    if worktree_exists and not worktree_registered:
+        raise SafetyError(f"refusing to remove unregistered worktree target: {target}")
+    branch_safe_to_delete = branch_exists and branch_is_merged_into_head(root, branch)
+    if apply and delete_branch and branch_exists and not branch_safe_to_delete:
+        raise SafetyError(
+            f"task branch is not merged into current HEAD: {branch}; rerun cleanup without "
+            "--delete-branch to reclaim only the worktree"
+        )
+
+    actions: list[str] = []
+    if worktree_exists:
+        actions.append("remove registered worktree")
+    elif worktree_registered:
+        actions.append("remove stale worktree registration")
+    if delete_branch and branch_exists:
+        actions.append("delete merged local task branch")
+    result: dict[str, object] = {
+        "status": "ready" if not apply else "cleaned",
+        "mode": "dry-run" if not apply else "apply",
+        "project_root": str(root),
+        "branch": branch,
+        "worktree": str(target),
+        "worktree_exists": worktree_exists,
+        "worktree_registered": worktree_registered,
+        "branch_exists": branch_exists,
+        "branch_safe_to_delete": branch_safe_to_delete,
+        "remote_branches": remote_matches,
+        "cleanup_actions": actions,
+        "production_changed": False,
+        "external_write_performed": False,
+        "local_git_write_performed": bool(apply and actions),
+    }
+    if not apply:
+        return result
+    if worktree_registered:
+        run_git(root, "worktree", "remove", str(target))
+    if delete_branch and branch_exists:
+        run_git(root, "branch", "-d", branch)
+    return result
+
+
 def build_parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(
-        description="Read-only isolation checks and dry-run-first worktree creation."
+        description="Read-only isolation checks and dry-run-first worktree lifecycle management."
     )
     subparsers = value.add_subparsers(dest="command", required=True)
     inspect_parser = subparsers.add_parser("inspect")
@@ -214,13 +300,17 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser = subparsers.add_parser("start")
     start_parser.add_argument("project_root")
     start_parser.add_argument("task")
-    start_parser.add_argument(
-        "--base",
-        choices=("origin/main", "main", "origin/master", "master"),
-    )
+    start_parser.add_argument("--base", metavar="REF")
     start_parser.add_argument("--confirm-base", default="")
     start_parser.add_argument("--apply", action="store_true")
     start_parser.add_argument("--json", action="store_true")
+
+    cleanup_parser = subparsers.add_parser("cleanup")
+    cleanup_parser.add_argument("project_root")
+    cleanup_parser.add_argument("task")
+    cleanup_parser.add_argument("--delete-branch", action="store_true")
+    cleanup_parser.add_argument("--apply", action="store_true")
+    cleanup_parser.add_argument("--json", action="store_true")
     return value
 
 
@@ -233,12 +323,19 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if arguments.command == "inspect":
             result = inspect_project(root)
-        else:
+        elif arguments.command == "start":
             result = start_task(
                 root,
                 task=arguments.task,
                 base=arguments.base,
                 confirm_base=arguments.confirm_base,
+                apply=arguments.apply,
+            )
+        else:
+            result = cleanup_task(
+                root,
+                task=arguments.task,
+                delete_branch=arguments.delete_branch,
                 apply=arguments.apply,
             )
     except SafetyError as error:
@@ -249,11 +346,13 @@ def main(argv: list[str] | None = None) -> int:
     else:
         for key, value in result.items():
             print(f"{key}: {value}")
-        if arguments.command == "start" and not arguments.apply:
-            print(
-                "Review the plan, then rerun with "
-                f"--confirm-base {result['required_base_confirmation']} --apply."
+        if arguments.command in {"start", "cleanup"} and not arguments.apply:
+            next_step = (
+                f"--confirm-base {result['required_base_confirmation']} --apply"
+                if arguments.command == "start"
+                else "--apply"
             )
+            print(f"Review the plan, then rerun with {next_step}.")
     return 0
 
 
