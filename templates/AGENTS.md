@@ -54,11 +54,15 @@ The modes may loop; they are not a one-way waterfall.
 - The current Codex mapping is Sol / Frontier, Terra / Balanced, and Luna / Fast.
 - Every subagent spawn must explicitly select Terra or Luna. Do not create Sol subagents by default; escalated judgment returns to the lead Sol agent.
 - If the platform cannot select a subagent model, fall back to sequential lead-agent execution instead of pretending routing occurred.
+- Keep role, model tier, reasoning effort, and permission scope separate. Stronger reasoning never grants wider authority.
 
 ### Delegation boundaries
 
-- Enable multiple agents adaptively only when at least two tasks are genuinely independent.
-- Do not split small linear work, shared-state writes, or high-risk external operations merely for parallelism.
+- `NO_DELEGATION` is a valid route. Delegate only when tasks are independent, materially beneficial, non-blocking, and cheaply verifiable.
+- Work the lead agent can complete and verify in about five minutes, or that immediately blocks the next lead action, defaults to direct execution.
+- A delegated task specifies its execution profile: role, model tier, reasoning effort, permission scope, output, budget, escalation conditions, and acceptance.
+- A worker that exceeds scope, encounters conflicting evidence, or reaches higher-risk permissions stops and returns `ESCALATE_TO_MAIN` with evidence.
+- When a worker is unavailable or times out, re-run the delegation value gate; do not automatically upgrade models or wait repeatedly for a small task.
 - The lead agent must verify material subagent claims against current files, tests, or real output.
 - Deployment, deletion, real external writes, credential operations, and final Git delivery require lead review and authorization.
 

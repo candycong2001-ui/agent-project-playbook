@@ -63,6 +63,46 @@ class OrchestrationContractTests(unittest.TestCase):
         self.assertIn("Luna / Fast", agents)
         self.assertIn("Do not create Sol subagents by default", agents)
 
+    def test_orchestration_contract_guards_delegation_and_recovery(self) -> None:
+        protocol = read("docs/ORCHESTRATION_MODEL.zh-CN.md")
+
+        for required in (
+            "NO_DELEGATION",
+            "DIRECT_MAIN",
+            "FAST_SCAN",
+            "BALANCED_WORK",
+            "INDEPENDENT_CHECK",
+            "ESCALATE_TO_MAIN",
+            "P0 只读",
+            "P3 真实副作用",
+            "TIMEOUT → RECLAIMED",
+            "角色描述“做什么”",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, protocol)
+
+    def test_bilingual_templates_guard_delegation_value_and_permission(self) -> None:
+        cases = (
+            (
+                "templates/AGENTS.md",
+                "`NO_DELEGATION` is a valid route",
+                "Stronger reasoning never grants wider authority",
+                "`ESCALATE_TO_MAIN`",
+            ),
+            (
+                "templates/zh-CN/AGENTS.md",
+                "`NO_DELEGATION` 是正常路由结果",
+                "更强推理不会自动获得更高权限",
+                "`ESCALATE_TO_MAIN`",
+            ),
+        )
+        for relative, no_delegation, permission, escalation in cases:
+            with self.subTest(relative=relative):
+                template = read(relative)
+                self.assertIn(no_delegation, template)
+                self.assertIn(permission, template)
+                self.assertIn(escalation, template)
+
 
 if __name__ == "__main__":
     unittest.main()
