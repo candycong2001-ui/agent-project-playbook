@@ -61,9 +61,12 @@ The modes may loop; they are not a one-way waterfall.
 - `NO_DELEGATION` is a valid route. Delegate only when tasks are independent, materially beneficial, non-blocking, and cheaply verifiable.
 - Work the lead agent can complete and verify in about five minutes, or that immediately blocks the next lead action, defaults to direct execution.
 - A delegated task specifies its execution profile: role, model tier, reasoning effort, permission scope, output, budget, escalation conditions, and acceptance.
+- Reserve capacity for later verification, review, and recovery before fan-out. The first real worker must pass a readable health probe before more workers are created.
+- Give each writing worker exclusive file or module ownership and a clear interface. Workers do not spawn agents; they report missing evidence instead of guessing or expanding scope.
 - A worker that exceeds scope, encounters conflicting evidence, or reaches higher-risk permissions stops and returns `ESCALATE_TO_MAIN` with evidence.
 - When a worker is unavailable or times out, re-run the delegation value gate; do not automatically upgrade models or wait repeatedly for a small task.
 - The lead agent must verify material subagent claims against current files, tests, or real output.
+- Close or archive a worker only after the lead has verified and adopted its output; retain unverified or disputed results for review.
 - Deployment, deletion, real external writes, credential operations, and final Git delivery require lead review and authorization.
 
 ## Project rhythm
