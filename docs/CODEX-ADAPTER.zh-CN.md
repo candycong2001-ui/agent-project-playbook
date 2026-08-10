@@ -163,4 +163,10 @@ codex exec --ignore-user-config --strict-config \
 - 不引入自定义 Agent 文件，除非后续真实任务证明有必要。
 - 不在核心协议中写死其他平台的模型名称和调用方式。
 
+## 9. 用户级项目启动入口
+
+稳定 checkout 可以通过 `scripts/activate_user_entry.py` 把 `~/.local/bin/meminit` 指向本仓库的统一入口，并从 `adapters/codex/new-project-memory-bootstrap/SKILL.md` 更新用户级 Bootstrap Skill。激活默认 dry-run，必须显式增加 `--apply`。
+
+这个入口只在用户明确启动项目时工作，不因进入目录自动初始化。它默认安装 `simple` 配置和安静模式 projectmem；当前证据确认生产运行面时使用 `--production`，不需要 projectmem 时使用 `--without-projectmem`。
+
 配置字段依据 [Codex Subagents 文档](https://learn.chatgpt.com/docs/agent-configuration/subagents.md)。

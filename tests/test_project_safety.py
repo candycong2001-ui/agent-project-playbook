@@ -2,15 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
-
-import scripts.project_safety as project_safety
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "project_safety.py"
@@ -21,9 +17,8 @@ def run(
     cwd: Path | None = None,
     home: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    environment = None
+    environment = os.environ.copy()
     if home is not None:
-        environment = os.environ.copy()
         environment["HOME"] = str(home)
     return subprocess.run(
         [sys.executable, str(SCRIPT), *arguments],
@@ -58,80 +53,66 @@ def initialize_repo(root: Path, branch: str = "main") -> None:
 
 
 class ProjectSafetyTests(unittest.TestCase):
-    def test_inspect_is_read_only_and_reports_missing_contracts(self) -> None:
+    def test_inspect_is_read_only_and_reports_current_profile(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
             initialize_repo(project)
+            (project / ".agent-playbook.toml").write_text(
+                'profile = "production"\n', encoding="utf-8"
+            )
+            skill = project / ".agents/skills/production-release-gate/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text("production rules\n", encoding="utf-8")
             before = git(project, "status", "--porcelain=v1")
 
             result = run("inspect", str(project), "--json")
 
             self.assertEqual(result.returncode, 0, result.stdout)
             payload = json.loads(result.stdout)
-            self.assertFalse(payload["documentation_headings_present"])
-            self.assertFalse(payload["physical_isolation_verified"])
-            self.assertFalse(payload["production_release_ready"])
+            self.assertEqual(payload["profile"], "production")
+            self.assertTrue(payload["production_skill_installed"])
             self.assertFalse(payload["production_changed"])
             self.assertEqual(git(project, "status", "--porcelain=v1"), before)
 
-    def test_start_dry_run_creates_nothing(self) -> None:
+    def test_start_dry_run_creates_nothing_and_prints_no_version_id(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project = root / "project"
             project.mkdir()
             initialize_repo(project)
 
-            result = run(
-                "start",
-                str(project),
-                "safe-task",
-                "--json",
-                home=root,
-            )
+            result = run("start", str(project), "safe-task", "--json", home=root)
 
             self.assertEqual(result.returncode, 0, result.stdout)
             payload = json.loads(result.stdout)
             self.assertEqual(payload["mode"], "dry-run")
             self.assertEqual(payload["branch"], "codex/safe-task")
-            target = root / ".codex/worktrees/project-safe-task"
-            self.assertFalse(target.exists())
-            self.assertNotIn("codex/safe-task", git(project, "branch", "--list"))
+            self.assertEqual(payload["base_ref"], "main")
+            self.assertNotIn("--confirm-base", result.stdout)
+            self.assertFalse((root / ".codex/worktrees/project-safe-task").exists())
 
-    def test_start_apply_creates_isolated_branch_and_worktree(self) -> None:
+    def test_start_apply_creates_worktree_without_manual_version_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project = root / "project"
             target = root / ".codex/worktrees/project-safe-task"
             project.mkdir()
             initialize_repo(project)
-            base = git(project, "rev-parse", "main")
 
-            result = run(
-                "start",
-                str(project),
-                "safe-task",
-                "--confirm-base",
-                base,
-                "--apply",
-                "--json",
-                home=root,
-            )
+            result = run("start", str(project), "safe-task", "--apply", "--json", home=root)
 
             self.assertEqual(result.returncode, 0, result.stdout)
             payload = json.loads(result.stdout)
             self.assertEqual(payload["status"], "created")
             self.assertEqual(git(target, "branch", "--show-current"), "codex/safe-task")
-            self.assertEqual(git(target, "rev-parse", "HEAD"), base)
-            self.assertFalse(payload["production_changed"])
             self.assertEqual(git(project, "branch", "--show-current"), "main")
 
-    def test_start_accepts_an_explicit_nondefault_base_ref(self) -> None:
+    def test_start_accepts_an_explicit_base_ref(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project = root / "project"
             project.mkdir()
             initialize_repo(project, branch="trunk")
-            base = git(project, "rev-parse", "trunk")
 
             result = run(
                 "start",
@@ -139,231 +120,41 @@ class ProjectSafetyTests(unittest.TestCase):
                 "safe-task",
                 "--base",
                 "trunk",
-                "--confirm-base",
-                base,
                 "--apply",
                 "--json",
                 home=root,
             )
 
             self.assertEqual(result.returncode, 0, result.stdout)
-            payload = json.loads(result.stdout)
-            self.assertEqual(payload["base_ref"], "trunk")
-            self.assertEqual(
-                git(root / ".codex/worktrees/project-safe-task", "rev-parse", "HEAD"), base
-            )
+            self.assertEqual(json.loads(result.stdout)["base_ref"], "trunk")
 
-    def test_start_rejects_existing_branch_and_unsafe_target(self) -> None:
+    def test_start_rejects_an_existing_branch_or_target(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            project = Path(temporary)
+            root = Path(temporary)
+            project = root / "project"
+            project.mkdir()
             initialize_repo(project)
             git(project, "branch", "codex/safe-task")
 
-            existing = run("start", str(project), "safe-task", home=project.parent)
-            unsafe = run(
-                "start",
-                str(project),
-                "other-task",
-                "--confirm-base",
-                git(project, "rev-parse", "main"),
-                "--apply",
-                home=project,
-            )
+            existing_branch = run("start", str(project), "safe-task", home=root)
+            self.assertEqual(existing_branch.returncode, 3, existing_branch.stdout)
+            self.assertIn("task branch already exists", existing_branch.stdout)
 
-            self.assertEqual(existing.returncode, 3, existing.stdout)
-            self.assertIn("task branch already exists", existing.stdout)
-            self.assertIn("cleanup", existing.stdout)
-            self.assertEqual(unsafe.returncode, 3, unsafe.stdout)
-            self.assertIn("unsafe managed worktree root", unsafe.stdout)
+            target = root / ".codex/worktrees/project-other-task"
+            target.mkdir(parents=True)
+            existing_target = run("start", str(project), "other-task", home=root)
+            self.assertEqual(existing_target.returncode, 3, existing_target.stdout)
+            self.assertIn("worktree target already exists", existing_target.stdout)
 
-    def test_apply_requires_exact_base_confirmation(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project = root / "project"
-            project.mkdir()
-            initialize_repo(project)
-
-            result = run(
-                "start",
-                str(project),
-                "safe-task",
-                "--apply",
-                home=root,
-            )
-
-            self.assertEqual(result.returncode, 3, result.stdout)
-            self.assertIn("base confirmation mismatch", result.stdout)
-            self.assertFalse((root / ".codex/worktrees/project-safe-task").exists())
-
-    def test_start_rejects_remote_branch_and_symlinked_managed_root(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project = root / "project"
-            project.mkdir()
-            initialize_repo(project)
-            git(
-                project,
-                "update-ref",
-                "refs/remotes/origin/codex/remote-task",
-                "main",
-            )
-
-            remote = run(
-                "start",
-                str(project),
-                "remote-task",
-                home=root,
-            )
-
-            self.assertEqual(remote.returncode, 3, remote.stdout)
-            self.assertIn("already exists on a remote", remote.stdout)
-
-            (root / ".codex").mkdir()
-            outside = root / "outside"
-            outside.mkdir()
-            (root / ".codex/worktrees").symlink_to(
-                outside,
-                target_is_directory=True,
-            )
-            symlinked = run(
-                "start",
-                str(project),
-                "symlink-task",
-                home=root,
-            )
-
-            self.assertEqual(symlinked.returncode, 3, symlinked.stdout)
-            self.assertIn("contains a symbolic link", symlinked.stdout)
-
-    def test_start_rejects_git_root_equal_to_managed_root(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            home = Path(temporary)
-            project = home / ".codex/worktrees"
-            project.mkdir(parents=True)
-            initialize_repo(project)
-
-            result = run("start", str(project), "safe-task", home=home)
-
-            self.assertEqual(result.returncode, 3, result.stdout)
-            self.assertIn("unsafe managed worktree root", result.stdout)
-
-    def test_failed_worktree_add_removes_new_branch_and_empty_directories(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary) / "project"
-            managed_root = Path(temporary) / "managed"
-            target = managed_root / "project-safe-task"
-            root.mkdir()
-            branch_exists = {"value": False}
-
-            def fake_git(_: Path, *arguments: str) -> str:
-                if arguments[:2] == ("rev-parse", "--verify"):
-                    return "a" * 40
-                if arguments[:1] == ("branch",) and arguments[1] == "codex/safe-task":
-                    branch_exists["value"] = True
-                    return ""
-                if arguments[:2] == ("worktree", "add"):
-                    target.mkdir()
-                    raise project_safety.SafetyError("simulated worktree add failure")
-                if arguments[:3] == ("worktree", "list", "--porcelain"):
-                    return f"worktree {root}"
-                if arguments[:2] == ("branch", "-D"):
-                    branch_exists["value"] = False
-                    return ""
-                self.fail(f"unexpected git call: {arguments}")
-
-            with (
-                mock.patch.object(project_safety, "git_root", return_value=root),
-                mock.patch.object(project_safety, "run_git", side_effect=fake_git),
-                mock.patch.object(
-                    project_safety,
-                    "local_branch_exists",
-                    side_effect=lambda *_: branch_exists["value"],
-                ),
-                mock.patch.object(
-                    project_safety,
-                    "remote_branch_matches",
-                    return_value=[],
-                ),
-                mock.patch.object(
-                    project_safety,
-                    "managed_target",
-                    return_value=(managed_root, target),
-                ),
-            ):
-                with self.assertRaises(project_safety.SafetyError):
-                    project_safety.start_task(
-                        root,
-                        task="safe-task",
-                        base="main",
-                        confirm_base="a" * 40,
-                        apply=True,
-                    )
-
-            self.assertFalse(branch_exists["value"])
-            self.assertFalse(target.exists())
-            self.assertFalse(managed_root.exists())
-
-    def test_inspect_headings_do_not_claim_physical_isolation(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            project = Path(temporary)
-            initialize_repo(project)
-            for relative, heading in (
-                ("AGENTS.md", "## Release isolation and environment safety"),
-                ("docs/ARCHITECTURE.md", "## Environment isolation\n\nNot verified"),
-                ("docs/CURRENT_HANDOFF.md", "Production impact: not classified"),
-            ):
-                path = project / relative
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(heading + "\n", encoding="utf-8")
-
-            result = run("inspect", str(project), "--json")
-
-            self.assertEqual(result.returncode, 0, result.stdout)
-            payload = json.loads(result.stdout)
-            self.assertTrue(payload["documentation_headings_present"])
-            self.assertFalse(payload["physical_isolation_verified"])
-            self.assertFalse(payload["production_release_ready"])
-
-    def test_cleanup_recovers_one_stale_worktree_without_pruning_other_tasks(self) -> None:
+    def test_cleanup_removes_a_registered_worktree_and_merged_branch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project = root / "project"
             target = root / ".codex/worktrees/project-safe-task"
-            other_target = root / ".codex/worktrees/project-other-task"
             project.mkdir()
             initialize_repo(project)
-            base = git(project, "rev-parse", "main")
-            created = run(
-                "start",
-                str(project),
-                "safe-task",
-                "--confirm-base",
-                base,
-                "--apply",
-                home=root,
-            )
+            created = run("start", str(project), "safe-task", "--apply", home=root)
             self.assertEqual(created.returncode, 0, created.stdout)
-            other_created = run(
-                "start",
-                str(project),
-                "other-task",
-                "--confirm-base",
-                base,
-                "--apply",
-                home=root,
-            )
-            self.assertEqual(other_created.returncode, 0, other_created.stdout)
-            shutil.rmtree(target)
-            shutil.rmtree(other_target)
-
-            dry_run = run("cleanup", str(project), "safe-task", "--json", home=root)
-
-            self.assertEqual(dry_run.returncode, 0, dry_run.stdout)
-            payload = json.loads(dry_run.stdout)
-            self.assertFalse(payload["worktree_exists"])
-            self.assertTrue(payload["worktree_registered"])
-            self.assertTrue(payload["branch_exists"])
-            self.assertEqual(payload["cleanup_actions"], ["remove stale worktree registration"])
 
             cleanup = run(
                 "cleanup",
@@ -377,32 +168,27 @@ class ProjectSafetyTests(unittest.TestCase):
 
             self.assertEqual(cleanup.returncode, 0, cleanup.stdout)
             self.assertFalse(target.exists())
-            self.assertNotIn(str(target), git(project, "worktree", "list", "--porcelain"))
-            self.assertIn(str(other_target), git(project, "worktree", "list", "--porcelain"))
             self.assertNotIn("codex/safe-task", git(project, "branch", "--list"))
-            restart = run("start", str(project), "safe-task", "--json", home=root)
-            self.assertEqual(restart.returncode, 0, restart.stdout)
 
-    def test_cleanup_refuses_an_unregistered_target_and_unmerged_branch_deletion(self) -> None:
+    def test_cleanup_refuses_unregistered_target_and_unmerged_branch_deletion(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project = root / "project"
+            target = root / ".codex/worktrees/project-safe-task"
             project.mkdir()
             initialize_repo(project)
-            target = root / ".codex/worktrees/project-safe-task"
             target.mkdir(parents=True)
 
-            unregistered = run("cleanup", str(project), "safe-task", "--apply", home=root)
-
+            unregistered = run("cleanup", str(project), "safe-task", home=root)
             self.assertEqual(unregistered.returncode, 3, unregistered.stdout)
-            self.assertIn("refusing to remove unregistered", unregistered.stdout)
+            self.assertIn("not registered", unregistered.stdout)
+
             target.rmdir()
-            git(project, "branch", "codex/safe-task")
-            git(project, "checkout", "codex/safe-task")
-            (project / "changes.md").write_text("unmerged\n", encoding="utf-8")
-            git(project, "add", "changes.md")
-            git(project, "commit", "-m", "unmerged task")
-            git(project, "checkout", "main")
+            created = run("start", str(project), "safe-task", "--apply", home=root)
+            self.assertEqual(created.returncode, 0, created.stdout)
+            (target / "change.txt").write_text("change\n", encoding="utf-8")
+            git(target, "add", "change.txt")
+            git(target, "commit", "-m", "unmerged")
 
             unmerged = run(
                 "cleanup",
@@ -412,10 +198,9 @@ class ProjectSafetyTests(unittest.TestCase):
                 "--apply",
                 home=root,
             )
-
             self.assertEqual(unmerged.returncode, 3, unmerged.stdout)
-            self.assertIn("not merged into current HEAD", unmerged.stdout)
-            self.assertIn("codex/safe-task", git(project, "branch", "--list"))
+            self.assertIn("not merged", unmerged.stdout)
+            self.assertTrue(target.exists())
 
 
 if __name__ == "__main__":

@@ -4,51 +4,24 @@ Last updated: not started
 
 ## Current goal
 
-State the single active goal.
+State the one outcome currently being pursued.
 
-## Active task framing
+## Current state
 
-- Collaboration mode: exploration, startup, or implementation; not classified.
-- Project stage: problem discovery, startup preparation, MVP, feature growth, stabilization, or maintenance; not classified.
-- Current deliverable: not selected.
-- User experience or evidence: not confirmed.
-- Inferred problem: not confirmed.
-- Slice type: not classified.
-- Acceptance: not confirmed.
-- Risk: not classified.
-- Environment: development, test, staging, production, or not applicable; not classified.
-- Production impact: none, possible, or confirmed; not classified.
-- Explicit non-goals: not confirmed.
-
-## Current vertical slice
-
-- One active end-to-end loop only: not started.
-
-## Role assignment
-
-- Lead agent: owns integration and delivery.
-- Specialist roles: not selected.
-
-## Completed
-
-- Nothing yet.
+- Keep only the facts a new agent needs to continue now.
 
 ## Verified
 
-- No verification run yet.
+- No verification has run yet.
 
 ## Remaining
 
-- Determine the next implementation step.
+- Identify the next unfinished item.
 
 ## Risks and blockers
 
-- None known yet.
-
-## Parking lot
-
-- None.
+- None known.
 
 ## Next action
 
-Validate the blueprint and architecture against current repository evidence.
+Check the current repository evidence and take one concrete next step.
