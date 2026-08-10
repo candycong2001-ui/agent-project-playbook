@@ -9,25 +9,13 @@ from pathlib import Path
 
 HEADING_CONTRACT = {
     "AGENTS.md": (
-        180,
+        90,
         (
             ("truth_order", "## Truth order", "## 真值顺序"),
-            ("collaboration_modes", "## Collaboration modes", "## 协作模式"),
-            ("design_thinking", "## Design Thinking mapping", "## Design Thinking 映射"),
-            (
-                "task_routing",
-                "## Automatic two-level task routing",
-                "## 自动两级任务路由",
-            ),
-            ("vertical_slice", "## Vertical slice discipline", "## 垂直切片纪律"),
-            ("multi_agent", "## Multi-agent coordination", "## 多 Agent 协作"),
+            ("working_defaults", "## Working defaults", "## 默认工作方式"),
+            ("skill_routing", "## Skill routing", "## Skill 路由"),
             ("project_rhythm", "## Project rhythm", "## 项目节奏"),
             ("risk_verification", "## Risk and verification", "## 风险与验证"),
-            (
-                "release_isolation",
-                "## Release isolation and environment safety",
-                "## 发布隔离与环境安全",
-            ),
             ("memory_boundaries", "## Memory boundaries", "## 记忆边界"),
         ),
     ),
@@ -48,35 +36,45 @@ HEADING_CONTRACT = {
         ),
     ),
     "docs/ARCHITECTURE.md": (
-        220,
+        160,
         (
             ("system_shape", "## System shape", "## 系统形态"),
             ("entry_points", "## Entry points", "## 入口"),
             ("command_map", "## Command map", "## 命令清单"),
             ("important_components", "## Important components", "## 重要组件"),
             ("data_flow", "## Data flow", "## 数据流"),
+            (
+                "runtime_side_effects",
+                "## Runtime and side effects",
+                "## 运行与外部副作用",
+            ),
             ("high_risk_areas", "## High-risk areas", "## 高风险区域"),
-            ("environment_isolation", "## Environment isolation", "## 环境隔离"),
-            ("deployment_rollback", "## Deployment and rollback", "## 部署与回滚"),
             ("verification", "## Verification", "## 验证"),
         ),
     ),
     "docs/CURRENT_HANDOFF.md": (
-        120,
+        80,
         (
             ("current_goal", "## Current goal", "## 当前目标"),
-            ("active_task", "## Active task framing", "## 当前问题单"),
-            ("current_slice", "## Current vertical slice", "## 当前垂直切片"),
-            ("role_assignment", "## Role assignment", "## 角色分配"),
-            ("completed", "## Completed", "## 已完成"),
+            ("current_state", "## Current state", "## 当前状态"),
             ("verified", "## Verified", "## 已验证"),
             ("remaining", "## Remaining", "## 剩余工作"),
             ("risks_blockers", "## Risks and blockers", "## 风险与阻塞"),
-            ("parking_lot", "## Parking lot", "## 停车区"),
             ("next_action", "## Next action", "## 下一步"),
         ),
     ),
 }
+
+HANDOFF_UPDATED = re.compile(r"^(?:Last updated|最后更新)[：:].+$", re.MULTILINE)
+HANDOFF_ACTIVITY_HEADING = re.compile(
+    r"^## (?:Session log|History|Activity log|Progress log|Deployment log|Changelog|"
+    r"会话日志|历史流水|活动日志|进度日志|部署日志|变更日志)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+DATED_ACTIVITY_LINE = re.compile(
+    r"^\s*(?:[-*>]\s*)?\d{4}[-/.]\d{1,2}[-/.]\d{1,2}(?:[ T]\d{1,2}:\d{2})?",
+    re.MULTILINE,
+)
 
 LANGUAGE_HEADING_INDEX = {"en": 1, "zh-CN": 2}
 RULES = {
@@ -157,20 +155,24 @@ def lint_project(root: Path, language: str) -> tuple[list[str], list[str]]:
             elif count > 1:
                 errors.append(f"duplicate heading: {relative}: {heading}")
 
-        if relative == "docs/CURRENT_HANDOFF.md" and (
-            "Last updated: not started" in text or "最后更新：尚未开始" in text
-        ):
-            warnings.append("CURRENT_HANDOFF has not been activated yet")
+        if relative == "docs/CURRENT_HANDOFF.md":
+            updated_count = len(HANDOFF_UPDATED.findall(text))
+            if updated_count != 1:
+                errors.append(
+                    "CURRENT_HANDOFF must contain exactly one current Last updated marker"
+                )
+            if "Last updated: not started" in text or "最后更新：尚未开始" in text:
+                warnings.append("CURRENT_HANDOFF has not been activated yet")
+            if HANDOFF_ACTIVITY_HEADING.search(text):
+                errors.append("CURRENT_HANDOFF must remain current state, not an activity diary")
+            if len(DATED_ACTIVITY_LINE.findall(text)) >= 3:
+                warnings.append(
+                    "CURRENT_HANDOFF looks like a dated activity stream; replace history with current state"
+                )
         if relative == "docs/ARCHITECTURE.md" and (
             "Not verified yet" in text or "尚未验证" in text
         ):
             warnings.append("ARCHITECTURE still contains unverified placeholders")
-        if relative == "docs/CURRENT_HANDOFF.md" and re.search(
-            r"^## (?:Session log|History|Activity log|会话日志|历史流水)\s*$",
-            text,
-            re.MULTILINE | re.IGNORECASE,
-        ):
-            errors.append("CURRENT_HANDOFF must remain current state, not an activity diary")
 
     return errors, warnings
 

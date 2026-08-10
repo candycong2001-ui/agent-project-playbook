@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""One user-facing entry for Playbook and optional quiet projectmem setup."""
+
+from __future__ import annotations
+
+import argparse
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+PLAYBOOK_ROOT = Path(__file__).resolve().parents[1]
+CORE_INIT = PLAYBOOK_ROOT / "scripts" / "init_project.py"
+PROJECTMEM_INIT = PLAYBOOK_ROOT / "scripts" / "init_projectmem.py"
+
+
+def run(command: list[str], heading: str) -> int:
+    print(f"\n## {heading}\n")
+    result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    print(result.stdout.rstrip())
+    return result.returncode
+
+
+def core_command(args: argparse.Namespace, *, apply: bool = False) -> list[str]:
+    command = [
+        sys.executable,
+        str(CORE_INIT),
+        str(args.project_root),
+        "--project-name",
+        args.project_name,
+    ]
+    if args.locale:
+        command.extend(["--locale", args.locale])
+    if args.profile:
+        command.extend(["--profile", args.profile])
+    if args.upgrade:
+        command.append("--upgrade")
+    elif apply:
+        command.append("--apply")
+    return command
+
+
+def projectmem_command(args: argparse.Namespace, *, apply: bool = False) -> list[str]:
+    command = [
+        sys.executable,
+        str(PROJECTMEM_INIT),
+        str(args.project_root),
+        "--project-name",
+        args.project_name,
+    ]
+    if args.locale:
+        command.extend(["--locale", args.locale])
+    if args.upgrade:
+        command.append("--upgrade")
+    elif apply:
+        command.append("--apply")
+    return command
+
+
+def confirmation_command(args: argparse.Namespace) -> str:
+    command = [str(Path(__file__).resolve()), str(args.project_root), args.project_name]
+    if args.locale != "zh-CN":
+        command.extend(["--locale", args.locale])
+    if args.profile == "production":
+        command.append("--production")
+    if args.without_projectmem:
+        command.append("--without-projectmem")
+    command.append("--apply")
+    return shlex.join(command)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Initialize one project with Agent Project Playbook rules."
+    )
+    parser.add_argument("project_root", type=Path, help="Existing project directory")
+    parser.add_argument("project_name", nargs="?", help="Defaults to the directory name")
+    parser.add_argument("--locale", choices=("en", "zh-CN"))
+    parser.add_argument("--profile", choices=("simple", "production"))
+    parser.add_argument(
+        "--production",
+        action="store_true",
+        help="Shortcut for --profile production.",
+    )
+    parser.add_argument(
+        "--without-projectmem",
+        action="store_true",
+        help="Install only the Playbook files and skip projectmem.",
+    )
+    parser.add_argument("--upgrade", action="store_true", help="Read-only comparison")
+    parser.add_argument("--apply", action="store_true", help="Apply a reviewed fresh install")
+    args = parser.parse_args()
+
+    if args.production and args.profile:
+        parser.error("use either --production or --profile, not both")
+    if args.production:
+        args.profile = "production"
+    if args.upgrade and args.apply:
+        parser.error("--upgrade is read-only and cannot be combined with --apply")
+
+    args.project_root = args.project_root.expanduser().resolve()
+    if not args.project_root.is_dir():
+        parser.error(f"project directory does not exist: {args.project_root}")
+    args.project_name = args.project_name or args.project_root.name
+    if not args.upgrade:
+        args.locale = args.locale or "zh-CN"
+        args.profile = args.profile or "simple"
+
+    if args.upgrade:
+        code = run(core_command(args), "Playbook upgrade check")
+        if not args.without_projectmem:
+            adapter_code = run(projectmem_command(args), "Projectmem upgrade check")
+            code = code or adapter_code
+        return code
+
+    if args.apply:
+        print("# meminit preflight")
+        code = run(core_command(args), "Playbook dry-run")
+        if code:
+            return code
+        if not args.without_projectmem:
+            code = run(projectmem_command(args), "Projectmem dry-run")
+            if code:
+                return code
+
+        print("\n# meminit apply")
+        code = run(core_command(args, apply=True), "Playbook install")
+        if code:
+            return code
+        if not args.without_projectmem:
+            code = run(projectmem_command(args, apply=True), "Projectmem install")
+        return code
+
+    print("# meminit dry-run")
+    code = run(core_command(args), "Playbook plan")
+    if code:
+        return code
+    if not args.without_projectmem:
+        code = run(projectmem_command(args), "Projectmem plan")
+        if code:
+            return code
+    print("\nReview the plan, then run:\n")
+    print(confirmation_command(args))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

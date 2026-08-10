@@ -102,6 +102,11 @@ class DocsLintTests(unittest.TestCase):
                 self.assertEqual(en_headings, tuple(section[1] for section in sections))
                 self.assertEqual(zh_headings, tuple(section[2] for section in sections))
 
+    def test_lean_document_limits_are_fixed(self) -> None:
+        self.assertEqual(RULES["en"]["AGENTS.md"][0], 90)
+        self.assertEqual(RULES["en"]["docs/ARCHITECTURE.md"][0], 160)
+        self.assertEqual(RULES["en"]["docs/CURRENT_HANDOFF.md"][0], 80)
+
     def test_installed_linter_finds_project_from_non_project_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -242,6 +247,52 @@ class DocsLintTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 1, result.stdout)
             self.assertIn("must remain current state, not an activity diary", result.stdout)
+
+    def test_deployment_log_heading_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            install_project(project)
+            handoff = project / "docs" / "CURRENT_HANDOFF.md"
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8") + "\n## Deployment log\n",
+                encoding="utf-8",
+            )
+
+            result = run_installed_lint(project)
+
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("must remain current state, not an activity diary", result.stdout)
+
+    def test_duplicate_last_updated_marker_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            install_project(project)
+            handoff = project / "docs" / "CURRENT_HANDOFF.md"
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8") + "\nLast updated: later\n",
+                encoding="utf-8",
+            )
+
+            result = run_installed_lint(project)
+
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("exactly one current Last updated marker", result.stdout)
+
+    def test_dated_activity_stream_warns_without_blocking(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            install_project(project)
+            handoff = project / "docs" / "CURRENT_HANDOFF.md"
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8")
+                + "\n- 2026-08-01 deployed\n- 2026-08-02 checked\n- 2026-08-03 restarted\n",
+                encoding="utf-8",
+            )
+
+            result = run_installed_lint(project)
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("looks like a dated activity stream", result.stdout)
 
 
 if __name__ == "__main__":

@@ -37,6 +37,9 @@ ruff format --check .
 
 - `templates/` 是英文模板。
 - `templates/zh-CN/` 是中文模板。
+- 项目 `AGENTS.md` 保持精简路由；生命周期、多 Agent 和文档细则放进对应的按需 Skill。
+- 修改初始化分发时，同时验证 `simple` 和 `production` 配置；production 专用文件不得进入 simple。
+- 修改 `meminit` 或 projectmem 适配器时，验证 dry-run 零写入、冲突时核心未安装，以及 watcher、hooks、backfill、全局继承和 MCP 保持关闭。
 - 修改任一必需标题时，必须同步 `docs_lint.py` 中唯一的 `HEADING_CONTRACT` 语义映射。
 - `RULES` 从该映射生成；契约测试会同时核对双语逐项对应关系与模板二级标题，避免静默漂移。
 - 机器路径、Skill 名称和命令保持英文，不翻译代码标识。

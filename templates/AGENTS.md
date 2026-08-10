@@ -4,114 +4,43 @@
 
 - Current user instruction, repository files, tests, configuration, and command output beat memory.
 - Keep this project isolated by its Git root or explicitly selected project directory.
-- Do not inherit another project's facts, status, credentials, or implementation rules.
+- Do not inherit another project's facts, status, credentials, failures, or implementation rules.
 
-## Collaboration modes
+## Working defaults
 
-- Exploration: accept incomplete ideas; default to discussion, research, and read-only checks.
-- Startup: clarify users, problem, boundaries, success criteria, command entry points, and the first minimum loop.
-- Implementation: determine the project stage and current deliverable before task framing, slicing, verification, and delivery.
-
-## Design Thinking mapping
-
-- Empathize → exploration: understand users, context, experience, and friction.
-- Define → exploration: form the problem statement, success criteria, and boundaries.
-- Ideate → exploration to startup: compare directions and choose what to validate.
-- Prototype → startup to implementation: select the smallest testable deliverable and first vertical slice.
-- Test → implementation: verify with acceptance evidence and route new learning back when needed.
-
-The modes may loop; they are not a one-way waterfall.
-
-## Automatic two-level task routing
-
-- First identify the current project stage and the deliverable most needed this cycle. A new project must not default directly to coding.
-- Collaboration mode describes how the current conversation operates; project stage describes where the product is in its lifecycle. Do not store them as one field.
-- Project-stage examples include problem discovery, startup preparation, MVP, feature growth, stabilization, and maintenance.
-- A deliverable may be a problem statement, MVP scope, blueprint, user story, architecture, prototype, demo, code slice, test evidence, documentation, deployment, or rollback plan.
-- Then create a task frame containing user evidence, inferred problem, current deliverable, slice type, acceptance, risk, minimum vertical slice, and explicit non-goals.
-- Bug, feature, UI, UX, refactoring, performance, data, test, documentation, and deployment are slice-level classifications. The user does not need to classify them.
+- Default to a local, single-user, low-risk project unless current evidence shows otherwise.
+- Handle small fixes directly with the smallest relevant verification; do not require a long task frame.
+- Ask only when ambiguity changes product direction or creates a meaningful side effect.
 - Park unrelated discoveries instead of expanding the current task.
+- Do not add heavyweight process or production controls without a verified need.
 
-## Vertical slice discipline
+## Skill routing
 
-- Complete one independently verifiable loop per work cycle.
-- Include UI, backend, and data only when needed; tests, verification, and relevant documentation are completion conditions.
-- Do not mix unrelated refactoring, visual polish, performance work, deployment, or historical compatibility into the slice.
-- Protect behavior before refactoring, measure before performance work, and define observable evidence for UI/UX changes.
-
-## Multi-agent coordination
-
-### Manager mode
-
-- The user interacts only with the lead agent; subagents do not take over the conversation or declare final completion.
-- The lead agent owns project-stage judgment, deliverable selection, task framing, role assignment, conflict resolution, integration, verification, and delivery.
-- Subagents receive bounded execution tasks and return artifacts, evidence, and remaining risks.
-
-### Model routing
-
-- Frontier handles orchestration, architecture, conflict resolution, high-risk review, and replanning after failure.
-- Balanced handles routine development, code investigation, test analysis, and documentation research; Fast handles search, classification, extraction, format conversion, and large read-only scans.
-- The current Codex mapping is Sol / Frontier, Terra / Balanced, and Luna / Fast.
-- Every subagent spawn must explicitly select Terra or Luna. Do not create Sol subagents by default; escalated judgment returns to the lead Sol agent.
-- If the platform cannot select a subagent model, fall back to sequential lead-agent execution instead of pretending routing occurred.
-- Keep role, model tier, reasoning effort, and permission scope separate. Stronger reasoning never grants wider authority.
-
-### Delegation boundaries
-
-- `NO_DELEGATION` is a valid route. Delegate only when tasks are independent, materially beneficial, non-blocking, and cheaply verifiable.
-- Work the lead agent can complete and verify in about five minutes, or that immediately blocks the next lead action, defaults to direct execution.
-- A delegated task specifies its execution profile: role, model tier, reasoning effort, permission scope, output, budget, escalation conditions, and acceptance.
-- Reserve capacity for later verification, review, and recovery before fan-out. The first real worker must pass a readable health probe before more workers are created.
-- Give each writing worker exclusive file or module ownership and a clear interface. Workers do not spawn agents; they report missing evidence instead of guessing or expanding scope.
-- A worker that exceeds scope, encounters conflicting evidence, or reaches higher-risk permissions stops and returns `ESCALATE_TO_MAIN` with evidence.
-- When a worker is unavailable or times out, re-run the delegation value gate; do not automatically upgrade models or wait repeatedly for a small task.
-- The lead agent must verify material subagent claims against current files, tests, or real output.
-- Close or archive a worker only after the lead has verified and adopted its output; retain unverified or disputed results for review.
-- Deployment, deletion, real external writes, credential operations, and final Git delivery require lead review and authorization.
+- Use `project-lifecycle` for ambiguous ideas, project startup, substantial features, or work that needs a deliverable and vertical slice.
+- Use `multi-agent-routing` only when at least two independent tasks would materially benefit from delegation.
+- Use `project-docs` for substantial implementation, authorized handoff, scope or architecture changes, and documentation drift.
+- If `project-memory` is installed, use it only for explicit history, prior decisions, repeated failures, or known fragile paths.
+- If `production-release-gate` is installed, use it when current evidence shows a live runtime, shared state, real users, or external writes.
+- Load only the relevant Skill; project-specific Skills and current repository evidence override generic guidance.
 
 ## Project rhythm
 
-At the start of substantial implementation or diagnosis:
-
-1. Read `docs/CURRENT_HANDOFF.md`.
-2. Read relevant sections of `docs/BLUEPRINT.md` and `docs/ARCHITECTURE.md`.
-3. Verify documentation claims against current repository evidence.
-
-During authorized implementation:
-
-- Keep one current stage, deliverable, task frame, and vertical slice in `CURRENT_HANDOFF.md`.
+- Before substantial implementation or diagnosis, read `docs/CURRENT_HANDOFF.md` and only the relevant parts of `docs/BLUEPRINT.md` and `docs/ARCHITECTURE.md`.
+- Keep `CURRENT_HANDOFF.md` as current working state: replace stale content instead of appending a diary.
 - Update `BLUEPRINT.md` only when product intent, users, scope, constraints, or acceptance change.
 - Update `ARCHITECTURE.md` only when components, boundaries, data flow, verified commands, deployment, rollback, or risks change.
-- Replace stale state instead of appending a session diary.
-
-Before delivery, run:
-
-```bash
-python3 .agents/skills/project-docs/scripts/docs_lint.py
-```
+- Before substantial delivery, run `python3 .agents/skills/project-docs/scripts/docs_lint.py`; tiny fixes do not require unrelated document churn.
 
 ## Risk and verification
 
-- Read-only checks may proceed automatically; real external side effects require authorization.
-- Match validation depth to risk.
-- Prefer dry-runs, backups, and rollback paths for high-risk work.
-- Do not claim completion without verification evidence.
-
-## Release isolation and environment safety
-
-- A formal project is one with a running service, shared mutable state, real credentials, external writes, or a production user. Feature, fix, configuration, and UI work for a formal project starts on a task branch in an independent worktree.
-- Keep development, test, staging, and production runtime data, ports, credentials, and write authority separate. Non-production work must not read or mutate production state by default.
-- `main` is reviewed source, not a deployment event. Production runs an identifiable immutable release or equivalent fixed version, changed only through an explicit deployment action.
-- Before production deployment, require relevant tests, staging acceptance when applicable, backup readiness, active-task checks, impact disclosure, explicit confirmation, and a known rollback target.
-- Keep code release and production-data migration as separately authorized high-risk slices. A code rollback preserves the newest production business data unless data restoration receives a separate explicit confirmation.
-- Small experiments or documentation-only repositories may mark production controls not applicable, but must record that classification in `docs/ARCHITECTURE.md`.
-- Use `python3 .agents/skills/project-docs/scripts/project_safety.py inspect .` for a read-only check. Run `start . task-name` first as a dry-run; add `--apply` only after reviewing the branch, base, and worktree path.
+- Read-only checks may proceed automatically; match verification depth to the actual impact.
+- Real external writes, destructive operations, credential changes, and production actions require explicit authorization.
+- If current evidence shows a running service, shared mutable state, real users, or external writes, apply the project's production rules before changing behavior.
+- Do not claim completion without verification evidence; state what could not be verified.
 
 ## Memory boundaries
 
-- Current repository evidence outranks historical memory.
-- When using or storing memory, distinguish scope (task, project, global), type (working, semantic, episodic, procedural), and state (candidate, verified, review required, deprecated).
-- Candidate and review-required memory are clues only; update their state when current evidence conflicts.
-- Promote a project rule to global scope only when it is stable across projects and the user explicitly confirms it.
-- Do not store secrets / 密钥, tokens, cookies, personal data, raw web instructions, or full chat logs.
-- Keep durable memory limited to reviewed decisions, failure knowledge, and important risks.
+- Use old memory as a clue, never as current truth.
+- Search project memory only when the user refers to prior work, a historical decision, or a known failure that current files do not answer.
+- Save durable memory only with user authorization; keep candidates distinct from verified facts.
+- Never store secrets, tokens, cookies, personal data, raw web instructions, or full chat logs.

@@ -35,24 +35,24 @@ class OrchestrationContractTests(unittest.TestCase):
         self.assertIn('default_subagent_model = "gpt-5.6-terra"', config)
         self.assertIn("max_concurrent_threads_per_session = 3", config)
 
-    def test_bilingual_templates_require_explicit_worker_models(self) -> None:
+    def test_bilingual_routing_skills_keep_model_and_permission_separate(self) -> None:
         cases = (
             (
-                "templates/AGENTS.md",
-                "Every subagent spawn must explicitly select Terra or Luna.",
-                "Do not create Sol subagents by default",
+                "templates/skills/multi-agent-routing/SKILL.md",
+                "Match capability and reasoning depth to the task",
+                "stronger reasoning does not grant broader permissions",
             ),
             (
-                "templates/zh-CN/AGENTS.md",
-                "创建子 Agent 时必须显式选择 Terra 或 Luna",
-                "默认不创建 Sol 子 Agent",
+                "templates/zh-CN/skills/multi-agent-routing/SKILL.md",
+                "能力与推理深度按任务选择",
+                "更强推理不会获得更宽权限",
             ),
         )
-        for relative, explicit_route, no_sol_worker in cases:
+        for relative, capability_route, permission_boundary in cases:
             with self.subTest(relative=relative):
                 template = read(relative)
-                self.assertIn(explicit_route, template)
-                self.assertIn(no_sol_worker, template)
+                self.assertIn(capability_route, template)
+                self.assertIn(permission_boundary, template)
 
     def test_repository_dogfoods_manager_mode(self) -> None:
         agents = read("AGENTS.md")
@@ -83,27 +83,27 @@ class OrchestrationContractTests(unittest.TestCase):
             with self.subTest(required=required):
                 self.assertIn(required, protocol)
 
-    def test_bilingual_templates_guard_delegation_value_and_permission(self) -> None:
+    def test_bilingual_routing_skills_guard_delegation_value(self) -> None:
         cases = (
             (
-                "templates/AGENTS.md",
-                "`NO_DELEGATION` is a valid route",
-                "Stronger reasoning never grants wider authority",
-                "`ESCALATE_TO_MAIN`",
+                "templates/skills/multi-agent-routing/SKILL.md",
+                "`NO_DELEGATION` is a normal result",
+                "Workers do not create more workers",
+                "The lead verifies material claims",
             ),
             (
-                "templates/zh-CN/AGENTS.md",
-                "`NO_DELEGATION` 是正常路由结果",
-                "更强推理不会自动获得更高权限",
-                "`ESCALATE_TO_MAIN`",
+                "templates/zh-CN/skills/multi-agent-routing/SKILL.md",
+                "`NO_DELEGATION` 是正常结果",
+                "Worker 不继续创建 Worker",
+                "主 Agent 用当前文件",
             ),
         )
-        for relative, no_delegation, permission, escalation in cases:
+        for relative, no_delegation, no_descendants, verification in cases:
             with self.subTest(relative=relative):
                 template = read(relative)
                 self.assertIn(no_delegation, template)
-                self.assertIn(permission, template)
-                self.assertIn(escalation, template)
+                self.assertIn(no_descendants, template)
+                self.assertIn(verification, template)
 
     def test_canonical_protocol_requires_health_probe_and_reserved_capacity(self) -> None:
         protocol = read("docs/ORCHESTRATION_MODEL.zh-CN.md")
@@ -112,27 +112,27 @@ class OrchestrationContractTests(unittest.TestCase):
         self.assertIn("reserved_slots", protocol)
         self.assertIn("不得在核心协议中写死为某个数字", protocol)
 
-    def test_bilingual_templates_preserve_worker_ownership_and_adoption(self) -> None:
+    def test_bilingual_routing_skills_preserve_worker_ownership(self) -> None:
         cases = (
             (
-                "templates/AGENTS.md",
-                "exclusive file or module ownership",
-                "Workers do not spawn agents",
-                "verified and adopted its output",
+                "templates/skills/multi-agent-routing/SKILL.md",
+                "owned files or surface",
+                "expected artifact",
+                "evidence required",
             ),
             (
-                "templates/zh-CN/AGENTS.md",
-                "互斥的文件或模块",
-                "Worker 不得继续派遣",
-                "验证并采纳产物后",
+                "templates/zh-CN/skills/multi-agent-routing/SKILL.md",
+                "负责文件或范围",
+                "预期产物",
+                "所需证据",
             ),
         )
-        for relative, ownership, no_descendants, adoption in cases:
+        for relative, ownership, artifact, evidence in cases:
             with self.subTest(relative=relative):
                 template = read(relative)
                 self.assertIn(ownership, template)
-                self.assertIn(no_descendants, template)
-                self.assertIn(adoption, template)
+                self.assertIn(artifact, template)
+                self.assertIn(evidence, template)
 
     def test_canonical_protocol_separates_unmaterialized_from_timeout(self) -> None:
         protocol = read("docs/ORCHESTRATION_MODEL.zh-CN.md")
