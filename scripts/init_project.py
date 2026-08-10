@@ -10,7 +10,7 @@ from pathlib import Path
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_ROOT = SOURCE_ROOT / "templates"
-PLAYBOOK_VERSION = "0.3.0"
+PLAYBOOK_VERSION = "0.3.1"
 
 SIMPLE_DESTINATIONS = (
     Path(".agent-playbook.toml"),

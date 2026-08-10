@@ -68,6 +68,22 @@ class DistributionContractTests(unittest.TestCase):
                 self.assertTrue(metadata.get("description"))
                 self.assertEqual(set(metadata), {"name", "description"})
 
+    def test_codex_global_agents_is_a_thin_skill_router(self) -> None:
+        path = ROOT / "adapters" / "codex" / "global-AGENTS.zh-CN.md"
+        text = path.read_text(encoding="utf-8")
+
+        self.assertLessEqual(len(text.splitlines()), 50)
+        for anchor in (
+            "默认按本地、单用户、低风险项目处理",
+            "new-project-memory-bootstrap",
+            "project-memory",
+            "production-release-gate",
+            "不要依赖用户记住 `meminit`",
+        ):
+            self.assertIn(anchor, text)
+        for detailed_section in ("Design Thinking 映射", "全局环境隔离与发布门禁", "projectsafe"):
+            self.assertNotIn(detailed_section, text)
+
     def test_lifecycle_skills_preserve_design_thinking_without_bloating_agents(self) -> None:
         cases = (
             (

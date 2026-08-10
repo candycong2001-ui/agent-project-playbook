@@ -82,7 +82,7 @@ class InitProjectTests(unittest.TestCase):
             for relative in EXPECTED_FILES:
                 self.assertTrue((project / relative).exists(), relative)
             metadata = (project / ".agent-playbook.toml").read_text(encoding="utf-8")
-            self.assertIn('playbook_version = "0.3.0"', metadata)
+            self.assertIn('playbook_version = "0.3.1"', metadata)
             self.assertIn('profile = "simple"', metadata)
 
             agents = (project / "AGENTS.md").read_text(encoding="utf-8")
