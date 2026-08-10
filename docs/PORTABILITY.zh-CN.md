@@ -24,7 +24,7 @@
 | 能力或平台 | 自动契约测试 | 真实平台 E2E | 当前状态 |
 | --- | --- | --- | --- |
 | 初始化器与中英文模板 | 有 | 不适用 | 可用 |
-| `meminit` 与 projectmem 适配器 | 有 | 本机 CLI | 候选验证 |
+| `meminit` 与 projectmem 适配器 | 有 | 本机 CLI | 有限验证 |
 | 通用 `AGENTS.md` 布局 | 有 | 未进行 | 布局约定 |
 | Agent Skills frontmatter 与安装路径 | 有 | 未进行 | 结构验证 |
 | Codex 省心模式 | 有 | 本机 smoke | 有限验证 |
