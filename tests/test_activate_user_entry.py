@@ -52,6 +52,38 @@ class ActivateUserEntryTests(unittest.TestCase):
             skill = home / ".agents/skills/new-project-memory-bootstrap/SKILL.md"
             self.assertIn("name: new-project-memory-bootstrap", skill.read_text(encoding="utf-8"))
 
+    def test_global_agents_dry_run_is_zero_write(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+
+            result = run(home, "--with-global-agents")
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("global_agents", result.stdout)
+            self.assertFalse(any(home.iterdir()))
+
+    def test_apply_replaces_global_agents_and_keeps_one_backup(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            target = home / ".codex/AGENTS.md"
+            target.parent.mkdir(parents=True)
+            target.write_text("old global rules\n", encoding="utf-8")
+
+            result = run(home, "--with-global-agents", "--apply")
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            expected = (ROOT / "adapters/codex/global-AGENTS.zh-CN.md").read_text(encoding="utf-8")
+            self.assertEqual(target.read_text(encoding="utf-8"), expected)
+            backups = list((home / ".codex/backups").glob("AGENTS.md.before-playbook-*"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(backups[0].read_text(encoding="utf-8"), "old global rules\n")
+
+            repeated = run(home, "--with-global-agents", "--apply")
+            self.assertEqual(repeated.returncode, 0, repeated.stdout)
+            self.assertEqual(
+                len(list((home / ".codex/backups").glob("AGENTS.md.before-playbook-*"))), 1
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

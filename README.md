@@ -4,7 +4,7 @@
 
 `agent-project-playbook` 帮助没有完整技术背景的人与 AI Agent 一起推进项目。用户可以只描述想法、感受和阻力，并且只需要与主 Agent 保持一条对话线；主 Agent 负责判断项目阶段、选择本轮交付物、形成问题单、组织后台专业能力、审查结果并完成交付。
 
-当前版本：`v0.3.0`
+当前版本：`v0.3.1`（开发中）
 
 ## 核心工作流
 
@@ -81,6 +81,14 @@ python3 scripts/init_project.py /path/to/your-project --project-name your-projec
 
 ```bash
 python3 scripts/activate_user_entry.py --playbook-root /path/to/agent-project-playbook
+```
+
+需要同时把 Codex 全局 `AGENTS.md` 收口为薄路由时，增加 `--with-global-agents`。只有显式 `--apply` 才会替换，并在内容变化时保留一份旧文件备份：
+
+```bash
+python3 scripts/activate_user_entry.py \
+  --playbook-root /path/to/agent-project-playbook \
+  --with-global-agents
 ```
 
 ## 仓库内容

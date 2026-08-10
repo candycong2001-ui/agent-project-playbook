@@ -10,9 +10,9 @@ description: Bootstrap the Agent Project Playbook into a user-selected project w
 1. Confirm the target project root, project name, and document locale (`en` or `zh-CN`).
 2. Use the `simple` profile unless current repository evidence shows a live runtime, shared state, real users, credentials, or external writes; then recommend `production`.
 3. Run `bin/meminit <path> <name>` from this repository. Add `--production` only for the production profile, or `--without-projectmem` when the optional cold-memory adapter is not wanted.
-4. Review the dry-run report with the user.
+4. Review the dry-run report; do not make the user remember the command.
 5. If the target already has Playbook files, run the same command with `--upgrade` and prepare a manual merge plan.
-6. Apply a new installation only after explicit confirmation with the same locale, profile, and `--apply`.
+6. If the original request explicitly authorizes installation and the dry-run has no conflict, apply without another confirmation. Otherwise ask once before `--apply`.
 7. Activate the generated documents using current repository evidence and keep `CURRENT_HANDOFF.md` limited to one current state.
 8. Mark unverified commands, runtime side effects, and risks instead of guessing.
 9. Run the installed Docs Lint before handing substantial implementation work back.
