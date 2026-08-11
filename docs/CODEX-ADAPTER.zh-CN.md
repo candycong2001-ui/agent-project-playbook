@@ -169,6 +169,6 @@ codex exec --ignore-user-config --strict-config \
 
 增加 `--with-global-agents` 时，激活器还会从 `adapters/codex/global-AGENTS.zh-CN.md` 更新全局薄路由。只有内容变化时才备份旧文件；详细生命周期、编排和生产规则继续留在项目 Skills，不复制回全局上下文。
 
-这个入口只在用户明确启动项目时工作，不因进入目录自动初始化。它默认安装 `simple` 配置和安静模式 projectmem；当前证据确认生产运行面时使用 `--production`，不需要 projectmem 时使用 `--without-projectmem`。
+这个入口只在用户明确启动项目时工作，不因进入目录自动初始化。它默认只安装零外部依赖的 `simple` Playbook Core；当前证据确认生产运行面时使用 `--production`，用户明确需要冷记忆且本机已有 `pjm` 时使用 `--with-projectmem`。
 
 配置字段依据 [Codex Subagents 文档](https://learn.chatgpt.com/docs/agent-configuration/subagents.md)。

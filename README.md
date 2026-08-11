@@ -2,7 +2,19 @@
 
 > 一套面向普通用户的可安装项目协作骨架：你只描述目标，主 Agent 负责收敛、实施、验证和交付。
 
-当前版本：`v0.3.1`
+当前版本：`v0.4.0`
+
+## 发行事实
+
+以下字段由 `playbook_contract.json` 定义，并由仓库 Invariant Check 同时核对代码与文档：
+
+| 字段 | 当前值 |
+| --- | --- |
+| 版本 | `0.4.0` |
+| 默认 profile | `simple` |
+| projectmem | `opt-in` |
+| `simple` 核心能力 | `project-lifecycle=available; multi-agent-routing=available; project-docs=available` |
+| `production` 增量能力 | `production-release-gate=available` |
 
 ## 它解决什么
 
@@ -33,19 +45,32 @@ bin/meminit /path/to/your-project your-project
 bin/meminit /path/to/your-project your-project --apply
 ```
 
-旧项目只生成升级比较，不覆盖现有内容：
+需要项目冷记忆时显式启用可选适配器：
+
+```bash
+bin/meminit /path/to/your-project your-project --with-projectmem --apply
+```
+
+旧项目先生成零写入升级计划：
 
 ```bash
 bin/meminit /path/to/your-project --upgrade
 ```
 
+计划没有阻断项时，安全升级官方托管文件：
+
+```bash
+bin/meminit /path/to/your-project --upgrade --apply
+```
+
 常用选项：
 
 - `--production`：增加按影响面工作的生产发布 Skill。
-- `--without-projectmem`：不安装可选的 projectmem 适配器。
+- `--with-projectmem`：同时安装可选的 projectmem 适配器；需要本机已有 `pjm`。
+- `--upgrade`：区分官方托管文件与项目内容；增加 `--apply` 后执行无冲突升级。
 - `--locale en`：生成英文项目文档；默认中文。
 
-`meminit` 不覆盖已有 `AGENTS.md`、项目文档、Skills 或 `.projectmem`。projectmem 默认关闭 watcher、Git hooks、历史回填、全局继承、自动捕获和 MCP 配置。
+Playbook Core 默认零外部依赖。首次安装不覆盖任何已有文件；安全升级只自动替换内容仍等于已知安装基线的官方 Skills 和脚本。`AGENTS.md`、BLUEPRINT、ARCHITECTURE、CURRENT_HANDOFF 始终属于项目，不会被自动覆盖。显式启用 projectmem 时仍会关闭 watcher、Git hooks、历史回填、全局继承、自动捕获和 MCP 配置。
 
 ## 安装后的项目
 

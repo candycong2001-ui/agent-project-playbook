@@ -41,6 +41,24 @@ raise SystemExit(2)
     return binary
 
 
+def make_failing_pjm(directory: Path) -> Path:
+    binary = directory / "failing-pjm"
+    binary.write_text(
+        """#!/usr/bin/env python3
+from pathlib import Path
+
+root = Path.cwd() / ".projectmem"
+root.mkdir()
+(root / "config.toml").write_text("partial = true\\n", encoding="utf-8")
+print("simulated pjm failure")
+raise SystemExit(9)
+""",
+        encoding="utf-8",
+    )
+    binary.chmod(0o755)
+    return binary
+
+
 def run_adapter(project: Path, fake_pjm: Path, *extra: str) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment["PJM_BIN"] = str(fake_pjm)
@@ -142,6 +160,56 @@ class ProjectmemAdapterTests(unittest.TestCase):
             self.assertIn("- mode: `read-only`", result.stdout)
             after = {path: path.read_bytes() for path in project.rglob("*") if path.is_file()}
             self.assertEqual(after, before)
+
+    def test_upgrade_drift_is_blocking_and_read_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            project.mkdir()
+            fake = make_fake_pjm(root)
+            installed = run_adapter(project, fake, "--apply")
+            self.assertEqual(installed.returncode, 0, installed.stdout)
+            skill = project / ".agents/skills/project-memory/SKILL.md"
+            skill.write_text("project customization\n", encoding="utf-8")
+            before = {path: path.read_bytes() for path in project.rglob("*") if path.is_file()}
+
+            result = run_adapter(project, fake, "--upgrade")
+
+            self.assertEqual(result.returncode, 3, result.stdout)
+            self.assertIn("differs; preserve project content", result.stdout)
+            after = {path: path.read_bytes() for path in project.rglob("*") if path.is_file()}
+            self.assertEqual(after, before)
+
+    def test_failed_pjm_init_removes_partial_projectmem(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            project.mkdir()
+            failing = make_failing_pjm(root)
+
+            result = run_adapter(project, failing, "--apply")
+
+            self.assertEqual(result.returncode, 9, result.stdout)
+            self.assertIn("simulated pjm failure", result.stdout)
+            self.assertFalse((project / ".projectmem").exists())
+            self.assertFalse((project / ".agents").exists())
+            self.assertFalse((project / ".gitignore").exists())
+
+    def test_post_pjm_failure_removes_adapter_files_and_empty_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            project.mkdir()
+            (project / ".gitignore").mkdir()
+            fake = make_fake_pjm(root)
+
+            result = run_adapter(project, fake, "--apply")
+
+            self.assertEqual(result.returncode, 4, result.stdout)
+            self.assertIn("rollback incomplete", result.stdout)
+            self.assertTrue((project / ".gitignore").is_dir())
+            self.assertFalse((project / ".projectmem").exists())
+            self.assertFalse((project / ".agents").exists())
 
 
 if __name__ == "__main__":

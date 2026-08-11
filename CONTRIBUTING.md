@@ -24,6 +24,7 @@ python3 -m pip install ruff==0.16.0
 
 ```bash
 python3 -m unittest discover -s tests -v
+python3 scripts/check_invariants.py
 python3 templates/skills/project-docs/scripts/docs_lint.py --project-root templates --language en
 python3 templates/skills/project-docs/scripts/docs_lint.py --project-root templates/zh-CN --language zh-CN
 python3 scripts/scan_public_repo.py
@@ -40,6 +41,7 @@ ruff format --check .
 - 项目 `AGENTS.md` 保持精简路由；生命周期、多 Agent 和文档细则放进对应的按需 Skill。
 - 修改初始化分发时，同时验证 `simple` 和 `production` 配置；production 专用文件不得进入 simple。
 - 修改 `meminit` 或 projectmem 适配器时，验证 dry-run 零写入、冲突时核心未安装，以及 watcher、hooks、backfill、全局继承和 MCP 保持关闭。
+- 修改任何自动升级的 Skill 或脚本前，先为当前发行版登记内容基线；升级不得覆盖项目语义文档或已修改的托管文件。
 - 修改任一必需标题时，必须同步 `docs_lint.py` 中唯一的 `HEADING_CONTRACT` 语义映射。
 - `RULES` 从该映射生成；契约测试会同时核对双语逐项对应关系与模板二级标题，避免静默漂移。
 - 机器路径、Skill 名称和命令保持英文，不翻译代码标识。

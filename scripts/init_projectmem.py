@@ -79,6 +79,56 @@ def harden_config(path: Path) -> None:
         path.write_text(text.rstrip() + "\nauto_capture = false\n", encoding="utf-8")
 
 
+def record_projectmem_enabled(root: Path) -> None:
+    metadata = root / ".agent-playbook.toml"
+    if not metadata.is_file():
+        return
+    text = metadata.read_text(encoding="utf-8")
+    rendered = 'projectmem = "enabled"'
+    updated, count = re.subn(
+        r"^\s*projectmem\s*=.*$",
+        rendered,
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if not count:
+        updated = f"{updated.rstrip()}\n{rendered}\n"
+    metadata.write_text(updated, encoding="utf-8")
+
+
+def restore_file(path: Path, before: bytes | None) -> None:
+    if path.is_symlink():
+        raise OSError(f"refusing to restore through symbolic link: {path}")
+    if before is None:
+        path.unlink(missing_ok=True)
+    else:
+        path.write_bytes(before)
+
+
+def remove_created_projectmem(root: Path) -> None:
+    created = root / ".projectmem"
+    if created.is_symlink():
+        raise OSError("refusing to remove symbolic-link .projectmem after failed install")
+    if created.is_dir():
+        shutil.rmtree(created)
+    elif os.path.lexists(created):
+        created.unlink()
+
+
+def remove_created_skill(skill: Path, root: Path, created: bool) -> None:
+    if not created:
+        return
+    skill.unlink(missing_ok=True)
+    current = skill.parent
+    while current != root:
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        current = current.parent
+
+
 def report(
     *,
     title: str,
@@ -136,7 +186,7 @@ def upgrade_plan(root: Path, project_name: str, locale: str) -> int:
         blocked=blocked,
     )
     print("\nNo files were written.")
-    return 0
+    return 3 if blocked else 0
 
 
 def main() -> int:
@@ -212,6 +262,14 @@ def main() -> int:
         stderr=subprocess.STDOUT,
     )
     if result.returncode:
+        cleanup_error: str | None = None
+        try:
+            remove_created_projectmem(root)
+        except OSError as error:
+            cleanup_error = str(error)
+        failure = f"pjm init failed: {result.stdout.strip()}"
+        if cleanup_error:
+            failure += f"; cleanup incomplete: {cleanup_error}"
         report(
             title="Init",
             root=root,
@@ -220,17 +278,54 @@ def main() -> int:
             mode=mode,
             current=[],
             created=[],
-            blocked=[f"pjm init failed: {result.stdout.strip()}"],
+            blocked=[failure],
         )
         return result.returncode
 
-    (root / ".projectmem" / "AI_INSTRUCTIONS.md").write_text(
-        instructions_template.read_text(encoding="utf-8"), encoding="utf-8"
-    )
-    harden_config(root / ".projectmem" / "config.toml")
-    skill.parent.mkdir(parents=True, exist_ok=True)
-    skill.write_text(skill_template.read_text(encoding="utf-8"), encoding="utf-8")
-    append_line_once(root / ".gitignore", IGNORE_RULES)
+    gitignore = root / ".gitignore"
+    metadata = root / ".agent-playbook.toml"
+    gitignore_before = gitignore.read_bytes() if gitignore.is_file() else None
+    metadata_before = metadata.read_bytes() if metadata.is_file() else None
+    skill_created = False
+    try:
+        (root / ".projectmem" / "AI_INSTRUCTIONS.md").write_text(
+            instructions_template.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        harden_config(root / ".projectmem" / "config.toml")
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text(skill_template.read_text(encoding="utf-8"), encoding="utf-8")
+        skill_created = True
+        append_line_once(gitignore, IGNORE_RULES)
+        record_projectmem_enabled(root)
+    except (OSError, UnicodeError) as error:
+        rollback_errors: list[str] = []
+        for label, operation in (
+            (
+                "project-memory Skill",
+                lambda: remove_created_skill(skill, root, skill_created),
+            ),
+            (".gitignore", lambda: restore_file(gitignore, gitignore_before)),
+            ("metadata", lambda: restore_file(metadata, metadata_before)),
+            (".projectmem", lambda: remove_created_projectmem(root)),
+        ):
+            try:
+                operation()
+            except OSError as rollback_error:
+                rollback_errors.append(f"{label}: {rollback_error}")
+        blocked_message = str(error)
+        if rollback_errors:
+            blocked_message += f"; rollback incomplete: {'; '.join(rollback_errors)}"
+        report(
+            title="Init",
+            root=root,
+            project_name=args.project_name,
+            locale=locale,
+            mode=mode,
+            current=[],
+            created=[],
+            blocked=[blocked_message],
+        )
+        return 4
     report(
         title="Init",
         root=root,

@@ -1,0 +1,129 @@
+{
+  "contract_schema_version": 1,
+  "playbook_version": "0.4.0",
+  "installed_schema_version": 1,
+  "supported_locales": [
+    "en",
+    "zh-CN"
+  ],
+  "defaults": {
+    "locale": "zh-CN",
+    "profile": "simple",
+    "projectmem": "opt-in"
+  },
+  "profiles": {
+    "simple": {
+      "destinations": [
+        ".agent-playbook.toml",
+        "AGENTS.md",
+        "docs/BLUEPRINT.md",
+        "docs/ARCHITECTURE.md",
+        "docs/CURRENT_HANDOFF.md",
+        ".agents/skills/project-lifecycle/SKILL.md",
+        ".agents/skills/multi-agent-routing/SKILL.md",
+        ".agents/skills/project-docs/SKILL.md",
+        ".agents/skills/project-docs/scripts/docs_lint.py"
+      ]
+    },
+    "production": {
+      "destinations": [
+        ".agent-playbook.toml",
+        "AGENTS.md",
+        "docs/BLUEPRINT.md",
+        "docs/ARCHITECTURE.md",
+        "docs/CURRENT_HANDOFF.md",
+        ".agents/skills/project-lifecycle/SKILL.md",
+        ".agents/skills/multi-agent-routing/SKILL.md",
+        ".agents/skills/project-docs/SKILL.md",
+        ".agents/skills/project-docs/scripts/docs_lint.py",
+        ".agents/skills/production-release-gate/SKILL.md",
+        ".agents/skills/production-release-gate/scripts/project_safety.py"
+      ]
+    }
+  },
+  "capabilities": {
+    "project-lifecycle": {
+      "status": "available",
+      "destination": ".agents/skills/project-lifecycle/SKILL.md",
+      "profiles": [
+        "simple",
+        "production"
+      ]
+    },
+    "multi-agent-routing": {
+      "status": "available",
+      "destination": ".agents/skills/multi-agent-routing/SKILL.md",
+      "profiles": [
+        "simple",
+        "production"
+      ]
+    },
+    "project-docs": {
+      "status": "available",
+      "destination": ".agents/skills/project-docs/SKILL.md",
+      "profiles": [
+        "simple",
+        "production"
+      ]
+    },
+    "production-release-gate": {
+      "status": "available",
+      "destination": ".agents/skills/production-release-gate/SKILL.md",
+      "profiles": [
+        "production"
+      ]
+    },
+    "projectmem": {
+      "status": "optional",
+      "activation": "opt-in",
+      "profiles": []
+    }
+  },
+  "roadmap": {
+    "current_phase": "I",
+    "phases": {
+      "I": {
+        "status": "implemented",
+        "label_zh": "当前已实现"
+      },
+      "II": {
+        "status": "next",
+        "label_zh": "下一阶段"
+      },
+      "III": {
+        "status": "planned",
+        "label_zh": "规划阶段"
+      },
+      "IV": {
+        "status": "future",
+        "label_zh": "远期方向"
+      }
+    }
+  },
+  "upgrade": {
+    "baseline_file": "upgrade_baselines.json",
+    "metadata": ".agent-playbook.toml",
+    "managed": [
+      ".agents/skills/project-lifecycle/SKILL.md",
+      ".agents/skills/multi-agent-routing/SKILL.md",
+      ".agents/skills/project-docs/SKILL.md",
+      ".agents/skills/project-docs/scripts/docs_lint.py",
+      ".agents/skills/production-release-gate/SKILL.md",
+      ".agents/skills/production-release-gate/scripts/project_safety.py"
+    ],
+    "seeded": [
+      "AGENTS.md",
+      "docs/BLUEPRINT.md",
+      "docs/ARCHITECTURE.md",
+      "docs/CURRENT_HANDOFF.md"
+    ],
+    "adapter_managed": [
+      ".agents/skills/project-memory/SKILL.md",
+      ".projectmem/AI_INSTRUCTIONS.md"
+    ],
+    "external": [
+      ".projectmem/config.toml",
+      ".gitignore"
+    ]
+  }
+}
