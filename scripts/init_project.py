@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
-import secrets
-import stat
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -29,7 +27,7 @@ UPGRADE_CONTRACT = CONTRACT["upgrade"]
 METADATA_DESTINATION = Path(UPGRADE_CONTRACT["metadata"])
 MANAGED_DESTINATIONS = tuple(Path(relative) for relative in UPGRADE_CONTRACT["managed"])
 SEEDED_DESTINATIONS = tuple(Path(relative) for relative in UPGRADE_CONTRACT["seeded"])
-BASELINE_PATH = SOURCE_ROOT / UPGRADE_CONTRACT["baseline_file"]
+SUPPORTED_UPGRADE_SOURCES = tuple(str(version) for version in UPGRADE_CONTRACT["supported_from"])
 
 SIMPLE_DESTINATIONS = PROFILE_DESTINATIONS["simple"]
 PRODUCTION_DESTINATIONS = tuple(
@@ -268,16 +266,6 @@ def print_report(
             print(f"- {item}")
 
 
-def load_upgrade_baselines() -> tuple[dict[str, object] | None, str | None]:
-    try:
-        baselines = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        return None, f"cannot load {BASELINE_PATH.name}: {error}"
-    if not isinstance(baselines, dict) or baselines.get("baseline_schema_version") != 1:
-        return None, "unsupported upgrade baseline schema; expected 1"
-    return baselines, None
-
-
 def target_mode(relative: Path) -> int:
     return 0o755 if relative.name in {"docs_lint.py", "project_safety.py"} else 0o644
 
@@ -332,22 +320,11 @@ def build_upgrade_actions(
     if actions.blocked:
         return actions
 
-    baseline_digests: dict[str, str] | None = None
-    if source_version != PLAYBOOK_VERSION:
-        baselines, baseline_error = load_upgrade_baselines()
-        if baseline_error is not None or baselines is None:
-            actions.blocked.append(baseline_error or "upgrade baselines are unavailable")
-            return actions
-        source_set = baselines.get("source_versions", {}).get(source_version)
-        if source_set is None:
-            actions.blocked.append(
-                f"playbook_version {source_version} has no safe baseline; migrate manually"
-            )
-            return actions
-        baseline_digests = baselines.get("template_sets", {}).get(source_set, {}).get(locale)
-        if not isinstance(baseline_digests, dict):
-            actions.blocked.append(f"upgrade baseline {source_set}/{locale} is missing")
-            return actions
+    if source_version != PLAYBOOK_VERSION and source_version not in SUPPORTED_UPGRADE_SOURCES:
+        actions.blocked.append(
+            f"playbook_version {source_version} is not supported; migrate manually"
+        )
+        return actions
 
     for relative in MANAGED_DESTINATIONS:
         template = files.get(relative)
@@ -378,22 +355,7 @@ def build_upgrade_actions(
         if current == target:
             actions.current.append(str(relative))
             continue
-        if source_version == PLAYBOOK_VERSION:
-            actions.blocked.append(f"{relative} is a modified managed file")
-            continue
-        expected_digest = baseline_digests.get(str(relative)) if baseline_digests else None
-        if expected_digest is None:
-            actions.blocked.append(f"{relative} has no baseline for {source_version}/{locale}")
-            continue
-        if hashlib.sha256(current).hexdigest() != expected_digest:
-            actions.blocked.append(f"{relative} is a modified managed file")
-            continue
-        actions.will_update.append(str(relative))
-        actions.writes.append(
-            UpgradeWrite(
-                relative=relative, before=current, after=target, mode=target_mode(relative)
-            )
-        )
+        actions.blocked.append(f"{relative} is a modified managed file")
 
     metadata_after = upgraded_metadata(metadata_before, project_root, settings)
     if metadata_after == metadata_before:
@@ -414,76 +376,30 @@ def build_upgrade_actions(
     return actions
 
 
-def open_parent_directory(project_root: Path, relative: Path, *, create: bool) -> tuple[int, str]:
-    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
-        raise OSError(f"unsafe upgrade destination: {relative}")
-    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
-    current = os.open(project_root, directory_flags)
-    try:
-        for part in relative.parts[:-1]:
-            if create:
-                try:
-                    os.mkdir(part, mode=0o755, dir_fd=current)
-                except FileExistsError:
-                    pass
-            following = os.open(part, directory_flags, dir_fd=current)
-            os.close(current)
-            current = following
-        return current, relative.name
-    except Exception:
-        os.close(current)
-        raise
-
-
-def read_confined(project_root: Path, relative: Path) -> tuple[bytes, int]:
-    parent, name = open_parent_directory(project_root, relative, create=False)
-    descriptor = -1
-    try:
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(name, flags, dir_fd=parent)
-        file_stat = os.fstat(descriptor)
-        if not stat.S_ISREG(file_stat.st_mode):
-            raise OSError(f"{relative} is not a regular file")
-        with os.fdopen(descriptor, "rb") as stream:
-            descriptor = -1
-            return stream.read(), file_stat.st_mode & 0o777
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        os.close(parent)
+def read_upgrade_target(project_root: Path, relative: Path) -> tuple[bytes, int]:
+    destination = validate_destination(project_root, relative)
+    if not destination.is_file():
+        raise FileNotFoundError(relative)
+    return destination.read_bytes(), destination.stat().st_mode & 0o777
 
 
 def atomic_replace(project_root: Path, relative: Path, content: bytes, mode: int) -> None:
-    parent, name = open_parent_directory(project_root, relative, create=True)
-    temporary_name = f".agent-playbook-upgrade-{secrets.token_hex(8)}"
-    descriptor = -1
+    destination = validate_destination(project_root, relative)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=".agent-playbook-upgrade-", dir=destination.parent
+    )
+    temporary = Path(temporary_name)
     try:
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(temporary_name, flags, 0o600, dir_fd=parent)
         os.fchmod(descriptor, mode)
         with os.fdopen(descriptor, "wb") as stream:
             descriptor = -1
             stream.write(content)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary_name, name, src_dir_fd=parent, dst_dir_fd=parent)
+        os.replace(temporary, destination)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
-        try:
-            os.unlink(temporary_name, dir_fd=parent)
-        except FileNotFoundError:
-            pass
-        os.close(parent)
-
-
-def unlink_confined(project_root: Path, relative: Path) -> None:
-    parent, name = open_parent_directory(project_root, relative, create=False)
-    try:
-        os.unlink(name, dir_fd=parent)
-    finally:
-        os.close(parent)
+        temporary.unlink(missing_ok=True)
 
 
 def apply_upgrade(project_root: Path, writes: list[UpgradeWrite]) -> str | None:
@@ -492,14 +408,14 @@ def apply_upgrade(project_root: Path, writes: list[UpgradeWrite]) -> str | None:
         for write in writes:
             if write.before is None:
                 try:
-                    read_confined(project_root, write.relative)
+                    read_upgrade_target(project_root, write.relative)
                 except FileNotFoundError:
                     pass
                 else:
                     raise OSError(f"{write.relative} changed after preflight")
                 old_mode = None
             else:
-                current, old_mode = read_confined(project_root, write.relative)
+                current, old_mode = read_upgrade_target(project_root, write.relative)
                 if current != write.before:
                     raise OSError(f"{write.relative} changed after preflight")
             atomic_replace(project_root, write.relative, write.after, write.mode)
@@ -508,11 +424,11 @@ def apply_upgrade(project_root: Path, writes: list[UpgradeWrite]) -> str | None:
         rollback_errors: list[str] = []
         for write, old_mode in reversed(applied):
             try:
-                current, _ = read_confined(project_root, write.relative)
+                current, _ = read_upgrade_target(project_root, write.relative)
                 if current != write.after:
                     raise OSError("content changed before rollback")
                 if write.before is None:
-                    unlink_confined(project_root, write.relative)
+                    validate_destination(project_root, write.relative).unlink()
                 else:
                     atomic_replace(
                         project_root,

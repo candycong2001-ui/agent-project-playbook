@@ -68,7 +68,7 @@ def projectmem_command(args: argparse.Namespace, *, apply: bool = False) -> list
 
 def confirmation_command(args: argparse.Namespace) -> str:
     command = [str(Path(__file__).resolve()), str(args.project_root), args.project_name]
-    if args.locale != "zh-CN":
+    if args.locale and args.locale != "zh-CN":
         command.extend(["--locale", args.locale])
     if args.profile == "production":
         command.append("--production")
@@ -99,6 +99,10 @@ def should_use_projectmem(args: argparse.Namespace) -> bool:
     if args.without_projectmem:
         return False
     return args.upgrade and has_projectmem_install(args.project_root)
+
+
+def has_core_install(project_root: Path) -> bool:
+    return (project_root / ".agent-playbook.toml").is_file()
 
 
 def snapshot_core_install(args: argparse.Namespace) -> dict[Path, bytes]:
@@ -183,10 +187,23 @@ def main() -> int:
     if not args.project_root.is_dir():
         parser.error(f"project directory does not exist: {args.project_root}")
     args.project_name = args.project_name or args.project_root.name
-    if not args.upgrade:
+    attach_projectmem = (
+        args.with_projectmem and not args.upgrade and has_core_install(args.project_root)
+    )
+    if not args.upgrade and not attach_projectmem:
         args.locale = args.locale or DEFAULT_LOCALE
         args.profile = args.profile or DEFAULT_PROFILE
     use_projectmem = should_use_projectmem(args)
+
+    if attach_projectmem:
+        heading = "Projectmem adapter preflight" if args.apply else "Projectmem adapter plan"
+        code = run(projectmem_command(args), heading)
+        if code or not args.apply:
+            if not code:
+                print("\nReview the plan, then run:\n")
+                print(confirmation_command(args))
+            return code
+        return run(projectmem_command(args, apply=True), "Projectmem adapter install")
 
     if args.upgrade:
         code = run(core_command(args), "Playbook upgrade check")

@@ -101,7 +101,10 @@
     }
   },
   "upgrade": {
-    "baseline_file": "upgrade_baselines.json",
+    "supported_from": [
+      "0.3.0",
+      "0.3.1"
+    ],
     "metadata": ".agent-playbook.toml",
     "managed": [
       ".agents/skills/project-lifecycle/SKILL.md",

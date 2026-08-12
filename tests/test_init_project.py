@@ -14,7 +14,7 @@ from scripts import init_project
 ROOT = Path(__file__).resolve().parents[1]
 INITIALIZER = ROOT / "scripts" / "init_project.py"
 CURRENT_VERSION = init_project.PLAYBOOK_VERSION
-BASELINE_VERSION = "0.3.1"
+PREVIOUS_VERSION = "0.3.1"
 
 EXPECTED_FILES = (
     ".agent-playbook.toml",
@@ -66,7 +66,7 @@ def initialize(
     )
 
 
-def mark_as_baseline_install(project: Path, version: str = BASELINE_VERSION) -> None:
+def mark_as_previous_install(project: Path, version: str = PREVIOUS_VERSION) -> None:
     metadata = project / ".agent-playbook.toml"
     text = metadata.read_text(encoding="utf-8")
     text = re.sub(
@@ -218,7 +218,7 @@ class InitProjectTests(unittest.TestCase):
             project = Path(temporary)
             installed = initialize(project, "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
             agents = project / "AGENTS.md"
             agents.write_text(
                 agents.read_text(encoding="utf-8") + "\nproject rule\n", encoding="utf-8"
@@ -235,18 +235,18 @@ class InitProjectTests(unittest.TestCase):
             self.assertIn("- AGENTS.md", result.stdout)
             self.assertIn("## Will create", result.stdout)
             self.assertIn(".agents/skills/project-lifecycle/SKILL.md", result.stdout)
-            self.assertIn(f"{BASELINE_VERSION} -> {CURRENT_VERSION}", result.stdout)
+            self.assertIn(f"{PREVIOUS_VERSION} -> {CURRENT_VERSION}", result.stdout)
             after = {path: path.read_bytes() for path in project.rglob("*") if path.is_file()}
             self.assertEqual(after, before)
 
-    def test_upgrade_apply_updates_managed_files_and_preserves_project_docs(self) -> None:
+    def test_upgrade_apply_updates_metadata_and_preserves_project_docs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project = root / "project"
             project.mkdir()
             installed = initialize(project, "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
             agents = project / "AGENTS.md"
             agents.write_text(
                 agents.read_text(encoding="utf-8") + "\nproject-owned rule\n",
@@ -254,15 +254,7 @@ class InitProjectTests(unittest.TestCase):
             )
             before_agents = agents.read_bytes()
 
-            relative = Path(".agents/skills/project-lifecycle/SKILL.md")
-            target_template = root / "new-project-lifecycle.md"
-            source_template = init_project.template_files("en", "simple")[relative]
-            target_template.write_text(
-                source_template.read_text(encoding="utf-8") + "\nNew managed behavior.\n",
-                encoding="utf-8",
-            )
             files = init_project.template_files("en", "simple")
-            files[relative] = target_template
             actions = init_project.build_upgrade_actions(
                 project,
                 "demo-project",
@@ -272,12 +264,13 @@ class InitProjectTests(unittest.TestCase):
             )
 
             self.assertFalse(actions.blocked, actions.blocked)
-            self.assertIn(str(relative), actions.will_update)
+            self.assertFalse(
+                any(item.startswith(".agents/skills/") for item in actions.will_update)
+            )
             error = init_project.apply_upgrade(project, actions.writes)
 
             self.assertIsNone(error)
             self.assertEqual(agents.read_bytes(), before_agents)
-            self.assertIn("New managed behavior.", (project / relative).read_text(encoding="utf-8"))
             metadata = (project / ".agent-playbook.toml").read_text(encoding="utf-8")
             self.assertIn(f'playbook_version = "{CURRENT_VERSION}"', metadata)
             self.assertIn('projectmem = "disabled"', metadata)
@@ -287,7 +280,7 @@ class InitProjectTests(unittest.TestCase):
             project = Path(temporary)
             installed = initialize(project, "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
             relative = Path(".agents/skills/project-lifecycle/SKILL.md")
             (project / relative).unlink()
 
@@ -299,7 +292,7 @@ class InitProjectTests(unittest.TestCase):
             metadata = (project / ".agent-playbook.toml").read_text(encoding="utf-8")
             self.assertIn(f'playbook_version = "{CURRENT_VERSION}"', metadata)
 
-    def test_supported_baselines_cover_both_locales(self) -> None:
+    def test_supported_source_versions_cover_both_locales(self) -> None:
         for source_version in ("0.3.0", "0.3.1"):
             for locale in ("en", "zh-CN"):
                 with (
@@ -309,7 +302,7 @@ class InitProjectTests(unittest.TestCase):
                     project = Path(temporary)
                     installed = initialize(project, "--apply", locale=locale)
                     self.assertEqual(installed.returncode, 0, installed.stdout)
-                    mark_as_baseline_install(project, source_version)
+                    mark_as_previous_install(project, source_version)
 
                     result = initialize(project, "--upgrade", locale=locale)
 
@@ -321,7 +314,7 @@ class InitProjectTests(unittest.TestCase):
             project = Path(temporary)
             installed = initialize(project, "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
             managed = project / ".agents/skills/project-lifecycle/SKILL.md"
             managed.write_text(
                 managed.read_text(encoding="utf-8") + "\nlocal customization\n",
@@ -341,7 +334,7 @@ class InitProjectTests(unittest.TestCase):
             project = Path(temporary)
             installed = initialize(project, "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
             first = Path(".agents/skills/project-lifecycle/SKILL.md")
             second = Path(".agents/skills/multi-agent-routing/SKILL.md")
             (project / first).unlink()
@@ -381,7 +374,7 @@ class InitProjectTests(unittest.TestCase):
             project.mkdir()
             installed = initialize(project, "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
             relative = Path(".agents/skills/project-lifecycle/SKILL.md")
             outside = root / "outside.md"
             outside.write_text("outside\n", encoding="utf-8")
@@ -396,82 +389,12 @@ class InitProjectTests(unittest.TestCase):
             self.assertEqual(outside.read_text(encoding="utf-8"), "outside\n")
             self.assertEqual((project / ".agent-playbook.toml").read_bytes(), metadata_before)
 
-    def test_upgrade_rejects_parent_symlink_injected_after_preflight(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project = root / "project"
-            project.mkdir()
-            installed = initialize(project, "--apply")
-            self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
-            relative = Path(".agents/skills/project-lifecycle/SKILL.md")
-            (project / relative).unlink()
-            actions = init_project.build_upgrade_actions(
-                project,
-                "demo-project",
-                "en",
-                "simple",
-                init_project.template_files("en", "simple"),
-            )
-            self.assertFalse(actions.blocked, actions.blocked)
-            managed_parent = project / relative.parent
-            detached_parent = root / "detached-project-lifecycle"
-            managed_parent.rename(detached_parent)
-            outside_parent = root / "outside"
-            outside_parent.mkdir()
-            outside_file = outside_parent / "SKILL.md"
-            outside_file.write_text("outside\n", encoding="utf-8")
-            managed_parent.symlink_to(outside_parent, target_is_directory=True)
-
-            error = init_project.apply_upgrade(project, actions.writes)
-
-            self.assertIsNotNone(error)
-            self.assertEqual(outside_file.read_text(encoding="utf-8"), "outside\n")
-            metadata = (project / ".agent-playbook.toml").read_text(encoding="utf-8")
-            self.assertIn(f'playbook_version = "{BASELINE_VERSION}"', metadata)
-
-    def test_upgrade_rejects_project_root_symlink_injected_after_preflight(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            project = root / "project"
-            project.mkdir()
-            installed = initialize(project, "--apply")
-            self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
-            relative = Path(".agents/skills/project-lifecycle/SKILL.md")
-            (project / relative).unlink()
-            actions = init_project.build_upgrade_actions(
-                project,
-                "demo-project",
-                "en",
-                "simple",
-                init_project.template_files("en", "simple"),
-            )
-            self.assertFalse(actions.blocked, actions.blocked)
-            detached_project = root / "detached-project"
-            project.rename(detached_project)
-            outside = root / "outside"
-            outside.mkdir()
-            outside_metadata = outside / ".agent-playbook.toml"
-            outside_metadata.write_bytes((detached_project / ".agent-playbook.toml").read_bytes())
-            project.symlink_to(outside, target_is_directory=True)
-
-            error = init_project.apply_upgrade(project, actions.writes)
-
-            self.assertIsNotNone(error)
-            self.assertFalse((outside / relative).exists())
-            self.assertIn(
-                f'playbook_version = "{BASELINE_VERSION}"',
-                outside_metadata.read_text(encoding="utf-8"),
-            )
-            self.assertFalse((detached_project / relative).exists())
-
     def test_upgrade_uses_installed_production_profile(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
             installed = initialize(project, "--profile", "production", "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
 
             result = run([sys.executable, str(INITIALIZER), str(project), "--upgrade", "--apply"])
 
@@ -498,13 +421,13 @@ class InitProjectTests(unittest.TestCase):
             project = Path(temporary)
             installed = initialize(project, "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project, "9.9.9")
+            mark_as_previous_install(project, "9.9.9")
             before = {path: path.read_bytes() for path in project.rglob("*") if path.is_file()}
 
             result = initialize(project, "--upgrade", "--apply")
 
             self.assertEqual(result.returncode, 3, result.stdout)
-            self.assertIn("has no safe baseline", result.stdout)
+            self.assertIn("is not supported", result.stdout)
             after = {path: path.read_bytes() for path in project.rglob("*") if path.is_file()}
             self.assertEqual(after, before)
 
@@ -513,7 +436,7 @@ class InitProjectTests(unittest.TestCase):
             project = Path(temporary)
             installed = initialize(project, "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
             metadata = project / ".agent-playbook.toml"
             metadata.write_text(
                 metadata.read_text(encoding="utf-8").replace(

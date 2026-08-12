@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.test_init_project import CURRENT_VERSION, mark_as_baseline_install
+from tests.test_init_project import CURRENT_VERSION, mark_as_previous_install
 from tests.test_projectmem_adapter import make_failing_pjm, make_fake_pjm
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,6 +75,26 @@ class MeminitTests(unittest.TestCase):
             self.assertTrue((project / ".agents/skills/project-memory/SKILL.md").is_file())
             metadata = (project / ".agent-playbook.toml").read_text(encoding="utf-8")
             self.assertIn('locale = "zh-CN"', metadata)
+            self.assertIn('projectmem = "enabled"', metadata)
+
+    def test_with_projectmem_can_attach_to_existing_core(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            project.mkdir()
+            fake = make_fake_pjm(root)
+            installed = run_meminit(project, root / "missing-pjm", "--apply")
+            self.assertEqual(installed.returncode, 0, installed.stdout)
+            agents_before = (project / "AGENTS.md").read_bytes()
+
+            result = run_meminit(project, fake, "--with-projectmem", "--apply")
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("Projectmem adapter install", result.stdout)
+            self.assertNotIn("Playbook install", result.stdout)
+            self.assertTrue((project / ".projectmem").is_dir())
+            self.assertEqual((project / "AGENTS.md").read_bytes(), agents_before)
+            metadata = (project / ".agent-playbook.toml").read_text(encoding="utf-8")
             self.assertIn('projectmem = "enabled"', metadata)
 
     def test_default_apply_succeeds_without_pjm(self) -> None:
@@ -210,7 +230,7 @@ class MeminitTests(unittest.TestCase):
             fake = make_fake_pjm(root)
             installed = run_meminit(project, fake, "--with-projectmem", "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
 
             result = run_meminit(project, root / "missing-pjm", "--upgrade", "--apply")
 
@@ -230,7 +250,7 @@ class MeminitTests(unittest.TestCase):
             fake = make_fake_pjm(root)
             installed = run_meminit(project, fake, "--with-projectmem", "--apply")
             self.assertEqual(installed.returncode, 0, installed.stdout)
-            mark_as_baseline_install(project)
+            mark_as_previous_install(project)
             adapter_skill = project / ".agents/skills/project-memory/SKILL.md"
             adapter_skill.write_text("project customization\n", encoding="utf-8")
             before = {path: path.read_bytes() for path in project.rglob("*") if path.is_file()}

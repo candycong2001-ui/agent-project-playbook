@@ -4,18 +4,6 @@
 
 当前版本：`v0.4.0`
 
-## 发行事实
-
-以下字段由 `playbook_contract.json` 定义，并由仓库 Invariant Check 同时核对代码与文档：
-
-| 字段 | 当前值 |
-| --- | --- |
-| 版本 | `0.4.0` |
-| 默认 profile | `simple` |
-| projectmem | `opt-in` |
-| `simple` 核心能力 | `project-lifecycle=available; multi-agent-routing=available; project-docs=available` |
-| `production` 增量能力 | `production-release-gate=available` |
-
 ## 它解决什么
 
 - 不要求用户先学会写完整需求、拆任务或管理多个 Agent。
@@ -45,7 +33,7 @@ bin/meminit /path/to/your-project your-project
 bin/meminit /path/to/your-project your-project --apply
 ```
 
-需要项目冷记忆时显式启用可选适配器：
+需要项目冷记忆时显式启用可选适配器；新项目和已安装 Core 的项目都可使用：
 
 ```bash
 bin/meminit /path/to/your-project your-project --with-projectmem --apply
@@ -70,7 +58,7 @@ bin/meminit /path/to/your-project --upgrade --apply
 - `--upgrade`：区分官方托管文件与项目内容；增加 `--apply` 后执行无冲突升级。
 - `--locale en`：生成英文项目文档；默认中文。
 
-Playbook Core 默认零外部依赖。首次安装不覆盖任何已有文件；安全升级只自动替换内容仍等于已知安装基线的官方 Skills 和脚本。`AGENTS.md`、BLUEPRINT、ARCHITECTURE、CURRENT_HANDOFF 始终属于项目，不会被自动覆盖。显式启用 projectmem 时仍会关闭 watcher、Git hooks、历史回填、全局继承、自动捕获和 MCP 配置。
+Playbook Core 默认零外部依赖。首次安装不覆盖任何已有文件；安全升级只更新元数据并补齐缺失的官方 Skills 和脚本，发现已有官方文件被修改时会停止。`AGENTS.md`、BLUEPRINT、ARCHITECTURE、CURRENT_HANDOFF 始终属于项目，不会被自动覆盖。显式启用 projectmem 时仍会关闭 watcher、Git hooks、历史回填、全局继承、自动捕获和 MCP 配置。
 
 ## 安装后的项目
 

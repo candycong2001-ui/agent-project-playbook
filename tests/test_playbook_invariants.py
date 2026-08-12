@@ -45,8 +45,8 @@ class PlaybookInvariantTests(unittest.TestCase):
     def test_each_document_version_drift_fails(self) -> None:
         mutations = {
             "README.md": (
-                f"| 版本 | `{CURRENT_VERSION}` |",
-                "| 版本 | `0.0.0` |",
+                f"当前版本：`v{CURRENT_VERSION}`",
+                "当前版本：`v0.0.0`",
             ),
             "docs/PORTABILITY.zh-CN.md": (
                 f"## v{CURRENT_VERSION} 兼容性矩阵",
@@ -79,14 +79,6 @@ class PlaybookInvariantTests(unittest.TestCase):
             path.write_text(
                 json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
-            readme = root / "README.md"
-            readme.write_text(
-                readme.read_text(encoding="utf-8").replace(
-                    "| projectmem | `opt-in` |", "| projectmem | `automatic` |"
-                ),
-                encoding="utf-8",
-            )
-
             result = run_checker(root)
 
             self.assertEqual(result.returncode, 1, result.stdout)

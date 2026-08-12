@@ -73,15 +73,6 @@ def require_match(
         errors.append(f"{label} is {match.group('value')!r}; expected {expected!r}")
 
 
-def capability_fact(contract: dict[str, Any], include: str, exclude: str | None = None) -> str:
-    values: list[str] = []
-    for name, settings in contract["capabilities"].items():
-        profiles = settings.get("profiles", [])
-        if include in profiles and (exclude is None or exclude not in profiles):
-            values.append(f"{name}={settings['status']}")
-    return "; ".join(values)
-
-
 def check_documents(root: Path, contract: dict[str, Any], errors: list[str]) -> None:
     version = str(contract["playbook_version"])
     readme = read_text(root, "README.md", errors)
@@ -109,18 +100,6 @@ def check_documents(root: Path, contract: dict[str, Any], errors: list[str]) -> 
         "EVOLUTION_BLUEPRINT version",
         errors,
     )
-
-    defaults = contract["defaults"]
-    fact_lines = (
-        f"| 版本 | `{version}` |",
-        f"| 默认 profile | `{defaults['profile']}` |",
-        f"| projectmem | `{defaults['projectmem']}` |",
-        f"| `simple` 核心能力 | `{capability_fact(contract, 'simple')}` |",
-        f"| `production` 增量能力 | `{capability_fact(contract, 'production', 'simple')}` |",
-    )
-    for line in fact_lines:
-        if line not in readme:
-            errors.append(f"README release fact differs or is missing: {line}")
 
     for phase, settings in contract["roadmap"]["phases"].items():
         pattern = rf"^\| Phase {re.escape(phase)}：[^\n]+\| {re.escape(settings['label_zh'])} \|$"
@@ -222,24 +201,13 @@ def check_distribution(
     if distributed != owned:
         errors.append("upgrade ownership does not partition every distributed destination")
 
-    baseline_path = root / upgrade["baseline_file"]
-    try:
-        baselines = json.loads(baseline_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        errors.append(f"cannot load upgrade baselines: {error}")
-        return
-    if baselines.get("baseline_schema_version") != 1:
-        errors.append("unsupported upgrade baseline schema; expected 1")
-        return
-    for source_version, template_set in baselines.get("source_versions", {}).items():
-        if source_version == version:
-            errors.append("current playbook_version must not be listed as an old baseline")
-        for locale in contract["supported_locales"]:
-            digests = baselines.get("template_sets", {}).get(template_set, {}).get(locale, {})
-            for relative in upgrade["managed"]:
-                digest = digests.get(relative)
-                if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
-                    errors.append(f"missing managed baseline: {source_version}/{locale}/{relative}")
+    supported_from = upgrade.get("supported_from")
+    if not isinstance(supported_from, list) or not supported_from:
+        errors.append("upgrade supported_from must list at least one older version")
+    elif any(not isinstance(item, str) or not item for item in supported_from):
+        errors.append("upgrade supported_from must contain version strings")
+    elif version in supported_from:
+        errors.append("current playbook_version must not be listed in upgrade supported_from")
 
 
 def check_cli_defaults(root: Path, contract: dict[str, Any], errors: list[str]) -> None:

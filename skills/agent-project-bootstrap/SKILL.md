@@ -23,7 +23,7 @@ description: Bootstrap the Agent Project Playbook into a user-selected project w
 - Never import another project's memory or status.
 - Never store secrets / 密钥, tokens, cookies, personal data, or private logs.
 - Never configure MCP, cross-project memory, background watchers, or global Agent settings from this skill.
-- `--upgrade` is read-only unless explicitly combined with `--apply`; safe upgrade may replace only unchanged managed Skills and scripts.
+- `--upgrade` is read-only unless explicitly combined with `--apply`; safe upgrade updates metadata, restores missing managed files, and stops when a managed file was customized.
 - Never overwrite `AGENTS.md`, BLUEPRINT, ARCHITECTURE, or CURRENT_HANDOFF during upgrade.
 - The default simple install does not include production safety tooling.
 - The default install is Playbook Core only and does not require `pjm`.
