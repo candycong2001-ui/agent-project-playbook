@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import re
 import shlex
 import subprocess
 import sys
@@ -12,6 +14,11 @@ from pathlib import Path
 PLAYBOOK_ROOT = Path(__file__).resolve().parents[1]
 CORE_INIT = PLAYBOOK_ROOT / "scripts" / "init_project.py"
 PROJECTMEM_INIT = PLAYBOOK_ROOT / "scripts" / "init_projectmem.py"
+CONTRACT = json.loads((PLAYBOOK_ROOT / "playbook_contract.json").read_text(encoding="utf-8"))
+DEFAULT_LOCALE = str(CONTRACT["defaults"]["locale"])
+DEFAULT_PROFILE = str(CONTRACT["defaults"]["profile"])
+SUPPORTED_LOCALES = tuple(CONTRACT["supported_locales"])
+SUPPORTED_PROFILES = tuple(CONTRACT["profiles"])
 
 
 def run(command: list[str], heading: str) -> int:
@@ -35,6 +42,8 @@ def core_command(args: argparse.Namespace, *, apply: bool = False) -> list[str]:
         command.extend(["--profile", args.profile])
     if args.upgrade:
         command.append("--upgrade")
+        if apply:
+            command.append("--apply")
     elif apply:
         command.append("--apply")
     return command
@@ -59,14 +68,83 @@ def projectmem_command(args: argparse.Namespace, *, apply: bool = False) -> list
 
 def confirmation_command(args: argparse.Namespace) -> str:
     command = [str(Path(__file__).resolve()), str(args.project_root), args.project_name]
-    if args.locale != "zh-CN":
+    if args.locale and args.locale != "zh-CN":
         command.extend(["--locale", args.locale])
     if args.profile == "production":
         command.append("--production")
-    if args.without_projectmem:
-        command.append("--without-projectmem")
+    if args.with_projectmem:
+        command.append("--with-projectmem")
     command.append("--apply")
     return shlex.join(command)
+
+
+def has_projectmem_install(project_root: Path) -> bool:
+    metadata = project_root / ".agent-playbook.toml"
+    if metadata.is_file():
+        match = re.search(
+            r'^\s*projectmem\s*=\s*"(?P<value>disabled|enabled)"\s*$',
+            metadata.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+        if match:
+            return match.group("value") == "enabled"
+    return (project_root / ".projectmem").is_dir() and (
+        project_root / ".agents" / "skills" / "project-memory" / "SKILL.md"
+    ).is_file()
+
+
+def should_use_projectmem(args: argparse.Namespace) -> bool:
+    if args.with_projectmem:
+        return True
+    if args.without_projectmem:
+        return False
+    return args.upgrade and has_projectmem_install(args.project_root)
+
+
+def has_core_install(project_root: Path) -> bool:
+    return (project_root / ".agent-playbook.toml").is_file()
+
+
+def snapshot_core_install(args: argparse.Namespace) -> dict[Path, bytes]:
+    """Capture exactly the Core files created by this fresh meminit run."""
+    snapshot: dict[Path, bytes] = {}
+    for relative_value in CONTRACT["profiles"][args.profile]["destinations"]:
+        relative = Path(relative_value)
+        target = args.project_root / relative
+        if target.is_symlink() or not target.is_file():
+            raise OSError(f"cannot verify newly installed Core file: {relative}")
+        snapshot[relative] = target.read_bytes()
+    return snapshot
+
+
+def rollback_core_install(args: argparse.Namespace, snapshot: dict[Path, bytes]) -> list[str]:
+    """Remove unchanged Core files after an optional adapter install fails."""
+    errors: list[str] = []
+    for relative, expected in reversed(tuple(snapshot.items())):
+        target = args.project_root / relative
+        try:
+            if target.is_symlink() or not target.is_file():
+                raise OSError("path is no longer a regular file")
+            if target.read_bytes() != expected:
+                raise OSError("content changed before rollback")
+            target.unlink()
+        except OSError as error:
+            errors.append(f"{relative}: {error}")
+
+    parents = {
+        (args.project_root / relative).parent
+        for relative in snapshot
+        if (args.project_root / relative).parent != args.project_root
+    }
+    for parent in sorted(parents, key=lambda path: len(path.parts), reverse=True):
+        current = parent
+        while current != args.project_root:
+            try:
+                current.rmdir()
+            except OSError:
+                break
+            current = current.parent
+    return errors
 
 
 def main() -> int:
@@ -75,50 +153,76 @@ def main() -> int:
     )
     parser.add_argument("project_root", type=Path, help="Existing project directory")
     parser.add_argument("project_name", nargs="?", help="Defaults to the directory name")
-    parser.add_argument("--locale", choices=("en", "zh-CN"))
-    parser.add_argument("--profile", choices=("simple", "production"))
+    parser.add_argument("--locale", choices=SUPPORTED_LOCALES)
+    parser.add_argument("--profile", choices=SUPPORTED_PROFILES)
     parser.add_argument(
         "--production",
         action="store_true",
         help="Shortcut for --profile production.",
     )
-    parser.add_argument(
+    projectmem_group = parser.add_mutually_exclusive_group()
+    projectmem_group.add_argument(
+        "--with-projectmem",
+        action="store_true",
+        help="Also install the optional quiet projectmem adapter.",
+    )
+    projectmem_group.add_argument(
         "--without-projectmem",
         action="store_true",
-        help="Install only the Playbook files and skip projectmem.",
+        help="Deprecated compatibility flag; core-only is already the default.",
     )
-    parser.add_argument("--upgrade", action="store_true", help="Read-only comparison")
-    parser.add_argument("--apply", action="store_true", help="Apply a reviewed fresh install")
+    parser.add_argument("--upgrade", action="store_true", help="Plan a safe managed-file upgrade")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply a reviewed fresh install or conflict-free upgrade",
+    )
     args = parser.parse_args()
 
     if args.production and args.profile:
         parser.error("use either --production or --profile, not both")
     if args.production:
         args.profile = "production"
-    if args.upgrade and args.apply:
-        parser.error("--upgrade is read-only and cannot be combined with --apply")
-
     args.project_root = args.project_root.expanduser().resolve()
     if not args.project_root.is_dir():
         parser.error(f"project directory does not exist: {args.project_root}")
     args.project_name = args.project_name or args.project_root.name
-    if not args.upgrade:
-        args.locale = args.locale or "zh-CN"
-        args.profile = args.profile or "simple"
+    attach_projectmem = (
+        args.with_projectmem and not args.upgrade and has_core_install(args.project_root)
+    )
+    if not args.upgrade and not attach_projectmem:
+        args.locale = args.locale or DEFAULT_LOCALE
+        args.profile = args.profile or DEFAULT_PROFILE
+    use_projectmem = should_use_projectmem(args)
+
+    if attach_projectmem:
+        heading = "Projectmem adapter preflight" if args.apply else "Projectmem adapter plan"
+        code = run(projectmem_command(args), heading)
+        if code or not args.apply:
+            if not code:
+                print("\nReview the plan, then run:\n")
+                print(confirmation_command(args))
+            return code
+        return run(projectmem_command(args, apply=True), "Projectmem adapter install")
 
     if args.upgrade:
         code = run(core_command(args), "Playbook upgrade check")
-        if not args.without_projectmem:
-            adapter_code = run(projectmem_command(args), "Projectmem upgrade check")
-            code = code or adapter_code
-        return code
+        if code:
+            return code
+        if use_projectmem:
+            code = run(projectmem_command(args), "Projectmem upgrade check")
+            if code:
+                return code
+        if not args.apply:
+            return 0
+        return run(core_command(args, apply=True), "Playbook safe upgrade")
 
     if args.apply:
         print("# meminit preflight")
         code = run(core_command(args), "Playbook dry-run")
         if code:
             return code
-        if not args.without_projectmem:
+        if use_projectmem:
             code = run(projectmem_command(args), "Projectmem dry-run")
             if code:
                 return code
@@ -127,15 +231,28 @@ def main() -> int:
         code = run(core_command(args, apply=True), "Playbook install")
         if code:
             return code
-        if not args.without_projectmem:
+        if use_projectmem:
+            try:
+                core_snapshot = snapshot_core_install(args)
+            except OSError as error:
+                print(f"\nCore install verification failed: {error}")
+                return 4
             code = run(projectmem_command(args, apply=True), "Projectmem install")
+            if code:
+                rollback_errors = rollback_core_install(args, core_snapshot)
+                if rollback_errors:
+                    print("\nOptional projectmem install failed; Core rollback was incomplete:")
+                    for error in rollback_errors:
+                        print(f"- {error}")
+                    return 4
+                print("\nOptional projectmem install failed; Core files were rolled back.")
         return code
 
     print("# meminit dry-run")
     code = run(core_command(args), "Playbook plan")
     if code:
         return code
-    if not args.without_projectmem:
+    if use_projectmem:
         code = run(projectmem_command(args), "Projectmem plan")
         if code:
             return code

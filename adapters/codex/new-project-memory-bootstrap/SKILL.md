@@ -14,6 +14,6 @@ description: Initialize the Agent Project Playbook, bounded project documents, l
 7. Activate the generated blueprint, architecture, handoff, and project map from current evidence.
 8. Run the installed Docs Lint before the first substantial handoff.
 
-The standard command installs quiet projectmem when `pjm` is available. It keeps watcher, Git hooks, history backfill, global inheritance, and MCP setup off. Use `--without-projectmem` when projectmem is not wanted.
+The standard command installs Playbook Core without external dependencies. Add `--with-projectmem` only when the user explicitly wants the optional cold-memory adapter and `pjm` is available. The adapter keeps watcher, Git hooks, history backfill, global inheritance, and MCP setup off.
 
 Never import another project's memory, overwrite existing project files, or invent project facts.
