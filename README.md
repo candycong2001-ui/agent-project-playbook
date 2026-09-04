@@ -93,7 +93,9 @@ Playbook Core 默认零外部依赖。首次安装不覆盖任何已有文件；
 python3 scripts/activate_user_entry.py --playbook-root "$PWD"
 ```
 
-确认后增加 `--apply`；需要同时安装精简的 Codex 全局 `AGENTS.md` 时，再增加 `--with-global-agents`。旧全局文件会保留一份备份。
+确认后增加 `--apply`；`--with-global-agents` 只在全局 `AGENTS.md` 缺失时安装，不覆盖已有个人规则。
+
+增加 `--with-reference-scout` 可安装一次[轻量参考调研 Skill](skills/reference-first-project-scout/SKILL.md)，并只向现有全局规则补一条触发说明。它在选型未定时自动参与，不要求每次启动项目都做研究；不读取其他项目记忆，也不复制进各项目。已有规则在补充前保留备份。
 
 ## 深入阅读
 

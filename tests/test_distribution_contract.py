@@ -35,6 +35,7 @@ class DistributionContractTests(unittest.TestCase):
     def test_source_skills_have_required_frontmatter(self) -> None:
         skills = (
             ROOT / "skills" / "agent-project-bootstrap" / "SKILL.md",
+            ROOT / "skills" / "reference-first-project-scout" / "SKILL.md",
             ROOT / "templates" / "skills" / "project-lifecycle" / "SKILL.md",
             ROOT / "templates" / "zh-CN" / "skills" / "project-lifecycle" / "SKILL.md",
             ROOT / "templates" / "skills" / "multi-agent-routing" / "SKILL.md",

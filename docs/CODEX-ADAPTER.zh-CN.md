@@ -167,7 +167,9 @@ codex exec --ignore-user-config --strict-config \
 
 稳定 checkout 可以通过 `scripts/activate_user_entry.py` 把 `~/.local/bin/meminit` 指向本仓库的统一入口，并从 `adapters/codex/new-project-memory-bootstrap/SKILL.md` 更新用户级 Bootstrap Skill。激活默认 dry-run，必须显式增加 `--apply`。
 
-增加 `--with-global-agents` 时，激活器还会从 `adapters/codex/global-AGENTS.zh-CN.md` 更新全局薄路由。只有内容变化时才备份旧文件；详细生命周期、编排和生产规则继续留在项目 Skills，不复制回全局上下文。
+增加 `--with-global-agents` 时，仅在全局 `AGENTS.md` 缺失时安装规范模板；已有个人规则保持不变，其他模板变更需人工合并。详细生命周期、编排和生产规则继续留在项目 Skills，不复制回全局上下文。
+
+增加 `--with-reference-scout` 时，将仓库中的通用 Scout 目录链接到用户级 Skills，并备份后只向现有全局规则补充一条选型触发条件。不向业务项目复制正文，不默认调研已确定方案。未选择安装全局规则且该文件缺失时，仅安装 Skill，由其描述参与按需发现。
 
 这个入口只在用户明确启动项目时工作，不因进入目录自动初始化。它默认只安装零外部依赖的 `simple` Playbook Core；当前证据确认生产运行面时使用 `--production`，用户明确需要冷记忆且本机已有 `pjm` 时使用 `--with-projectmem`。
 

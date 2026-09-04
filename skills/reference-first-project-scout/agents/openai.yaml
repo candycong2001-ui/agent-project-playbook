@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reference First"
+  short_description: "Check methods and implementations for open design choices"
+  default_prompt: "Use $reference-first-project-scout for a quick reference check of this open design choice, separating method fit from implementation reuse."
