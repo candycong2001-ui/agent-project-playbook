@@ -2,10 +2,9 @@
 
 ## Truth order
 
-1. Current user instruction.
-2. Current repository files, tests, and command output.
-3. Published protocol and templates.
-4. Historical discussion as a clue only.
+- Current user decisions establish goals, scope, and authorization.
+- Current files, configuration, tests, and command output establish what is implemented, verified, and running.
+- Use the published protocol and historical discussion to locate evidence and prior decisions.
 
 ## Repository purpose
 
@@ -32,12 +31,12 @@
 ## Manager mode
 
 - The user interacts only with the lead Agent; subagents do not take over the conversation or declare final completion.
-- Use Sol / Frontier for orchestration, architecture, conflict resolution, high-risk review, and replanning.
-- Explicitly select Terra / Balanced for routine development and analysis, or Luna / Fast for bounded scans and extraction.
-- Do not create Sol subagents by default; escalated judgment returns to the lead Sol Agent.
+- Keep the user-selected lead model for orchestration, architecture, conflict resolution, high-risk review, and replanning.
+- For permitted delegation, choose currently available capabilities and reasoning depth against task and cost requirements. Inheritance is valid when its known configuration meets those requirements; do not require an explicit override solely to avoid inheritance.
+- Escalated judgment returns to the lead Agent; model choice does not expand delegation or external-write authority.
 - Treat `NO_DELEGATION` as a valid route. Delegate only when work is independent, materially beneficial, non-blocking, and cheaply verifiable.
 - Keep role, model tier, reasoning effort, and permission scope separate; stronger reasoning never grants wider authority.
-- Reserve capacity for verification, review, and recovery before fan-out; prove the first Worker is readable before creating later Workers.
+- Use the host's available capacity and leave room for verification, review, and recovery; on creation or access failure, check worker state and take over or replan.
 - Give writing Workers exclusive ownership, forbid descendant delegation, and archive only outputs the lead has verified and adopted.
 - Workers that exceed scope or risk return `ESCALATE_TO_MAIN` with evidence instead of expanding the task.
 - Verify material subagent claims against current repository evidence before integration or delivery.

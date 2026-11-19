@@ -12,9 +12,10 @@ def read(relative: str) -> str:
 
 
 class OrchestrationContractTests(unittest.TestCase):
-    def test_codex_adapter_declares_three_tier_mapping(self) -> None:
+    def test_codex_adapter_dates_historical_three_tier_mapping(self) -> None:
         adapter = read("docs/CODEX-ADAPTER.zh-CN.md")
 
+        self.assertIn("2026-07-25 的适配与测试示例", adapter)
         expected = {
             "Frontier": "gpt-5.6-sol",
             "Balanced": "gpt-5.6-terra",
@@ -25,7 +26,7 @@ class OrchestrationContractTests(unittest.TestCase):
                 self.assertIn(tier, adapter)
                 self.assertIn(f"`{model}`", adapter)
 
-    def test_recommended_config_uses_sol_main_and_terra_fallback(self) -> None:
+    def test_historical_config_example_uses_sol_main_and_terra_fallback(self) -> None:
         adapter = read("docs/CODEX-ADAPTER.zh-CN.md")
         match = re.search(r"```toml\n(?P<config>.*?)```", adapter, re.DOTALL)
 
@@ -58,11 +59,11 @@ class OrchestrationContractTests(unittest.TestCase):
         agents = read("AGENTS.md")
 
         self.assertIn("## Manager mode", agents)
-        self.assertIn("Sol / Frontier", agents)
-        self.assertIn("Terra / Balanced", agents)
-        self.assertIn("Luna / Fast", agents)
-        self.assertIn("Do not create Sol subagents by default", agents)
-        self.assertIn("Reserve capacity for verification", agents)
+        self.assertIn("user-selected lead model", agents)
+        self.assertIn("task and cost requirements", agents)
+        self.assertIn("Inheritance is valid", agents)
+        self.assertIn("model choice does not expand delegation", agents)
+        self.assertIn("leave room for verification, review, and recovery", agents)
         self.assertIn("exclusive ownership", agents)
 
     def test_orchestration_contract_guards_delegation_and_recovery(self) -> None:
@@ -105,12 +106,12 @@ class OrchestrationContractTests(unittest.TestCase):
                 self.assertIn(no_descendants, template)
                 self.assertIn(verification, template)
 
-    def test_canonical_protocol_requires_health_probe_and_reserved_capacity(self) -> None:
+    def test_canonical_protocol_uses_host_capacity_and_bounds_failure_recovery(self) -> None:
         protocol = read("docs/ORCHESTRATION_MODEL.zh-CN.md")
 
-        self.assertIn("健康探针", protocol)
-        self.assertIn("reserved_slots", protocol)
-        self.assertIn("不得在核心协议中写死为某个数字", protocol)
+        self.assertIn("宿主的实际可用容量", protocol)
+        self.assertIn("停止扩大本批派遣，核对已启动任务并接管或重规划", protocol)
+        self.assertIn("只有具体故障需要区分时才增加启动探针", protocol)
 
     def test_bilingual_routing_skills_preserve_worker_ownership(self) -> None:
         cases = (
