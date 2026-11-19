@@ -145,7 +145,9 @@ def lint_project(root: Path, language: str) -> tuple[list[str], list[str]]:
         text = path.read_text(encoding="utf-8")
         line_count = len(text.splitlines())
         if line_count > line_limit:
-            errors.append(f"too long: {relative} has {line_count} lines; limit is {line_limit}")
+            warnings.append(
+                f"too long: {relative} has {line_count} lines; threshold is {line_limit}"
+            )
 
         actual_headings = extract_h2(text)
         for heading in required_headings:

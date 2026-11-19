@@ -102,8 +102,9 @@ class DocsLintTests(unittest.TestCase):
                 self.assertEqual(en_headings, tuple(section[1] for section in sections))
                 self.assertEqual(zh_headings, tuple(section[2] for section in sections))
 
-    def test_lean_document_limits_are_fixed(self) -> None:
+    def test_document_warning_thresholds_are_fixed(self) -> None:
         self.assertEqual(RULES["en"]["AGENTS.md"][0], 90)
+        self.assertEqual(RULES["en"]["docs/BLUEPRINT.md"][0], 160)
         self.assertEqual(RULES["en"]["docs/ARCHITECTURE.md"][0], 160)
         self.assertEqual(RULES["en"]["docs/CURRENT_HANDOFF.md"][0], 80)
 
@@ -164,20 +165,28 @@ class DocsLintTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2, result.stdout)
             self.assertIn("could not locate the project root", result.stdout)
 
-    def test_overlong_document_fails(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            project = Path(temporary)
-            install_project(project)
-            blueprint = project / "docs" / "BLUEPRINT.md"
-            blueprint.write_text(
-                blueprint.read_text(encoding="utf-8") + "\n" + ("extra\n" * 170),
-                encoding="utf-8",
-            )
+    def test_overlong_document_warns_without_hiding_structural_errors(self) -> None:
+        for locale in ("en", "zh-CN"):
+            with self.subTest(locale=locale), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                install_project(project, locale=locale)
+                blueprint = project / "docs" / "BLUEPRINT.md"
+                overlong = blueprint.read_text(encoding="utf-8") + "\n" + ("extra\n" * 170)
+                blueprint.write_text(overlong, encoding="utf-8")
 
-            result = run_installed_lint(project)
+                result = run_installed_lint(project)
 
-            self.assertEqual(result.returncode, 1, result.stdout)
-            self.assertIn("too long: docs/BLUEPRINT.md", result.stdout)
+                warning = "WARN: too long: docs/BLUEPRINT.md"
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertIn(warning, result.stdout)
+
+                heading = RULES[locale]["docs/BLUEPRINT.md"][1][0]
+                blueprint.write_text(overlong.replace(heading, "", 1), encoding="utf-8")
+                result = run_installed_lint(project)
+
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn(warning, result.stdout)
+                self.assertIn(f"missing heading: docs/BLUEPRINT.md: {heading}", result.stdout)
 
     def test_lint_project_returns_structured_errors_directly(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

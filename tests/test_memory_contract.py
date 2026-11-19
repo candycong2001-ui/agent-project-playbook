@@ -23,18 +23,14 @@ class MemoryContractTests(unittest.TestCase):
             with self.subTest(state=state):
                 self.assertIn(f"| {state} |", self.model)
 
-    def test_preserves_truth_order(self) -> None:
-        expected_order = (
-            "用户本轮明确指令",
-            "当前代码、测试、配置和真实输出",
-            "已确认的稳定项目文档",
-            "已验证的项目记忆",
-            "候选或待复核记忆",
-            "聊天历史",
-        )
-        positions = [self.model.index(item) for item in expected_order]
+    def test_distinguishes_authorization_from_observed_state(self) -> None:
+        self.assertIn("用户本轮明确决定说明当前意图、范围和授权", self.model)
+        self.assertIn("当前代码、测试、配置和真实输出说明实现、验证和运行状态", self.model)
+        self.assertIn("已批准、已实现、已部署和已验收应分别记录", self.model)
 
-        self.assertEqual(positions, sorted(positions))
+    def test_keeps_native_memory_settings_separate_from_durable_writes(self) -> None:
+        self.assertIn("原生记忆沿用用户已确认的宿主设置", self.model)
+        self.assertIn("主动写入长期项目记忆或跨项目晋升按其授权办理", self.model)
 
     def test_preserves_five_promotion_rules(self) -> None:
         section = self.model.split("## 5. 记忆晋升流程", maxsplit=1)[1]

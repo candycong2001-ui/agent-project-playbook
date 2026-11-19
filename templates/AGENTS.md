@@ -2,7 +2,7 @@
 
 ## Truth order
 
-- Current user instruction, repository files, tests, configuration, and command output beat memory.
+- Current user decisions establish intent, scope, and authorization. Current files, tests, configuration, and runtime evidence establish results.
 - Keep this project isolated by its Git root or explicitly selected project directory.
 - Do not inherit another project's facts, status, credentials, failures, or implementation rules.
 
@@ -26,7 +26,7 @@
 ## Project rhythm
 
 - Before substantial implementation or diagnosis, read `docs/CURRENT_HANDOFF.md` and only the relevant parts of `docs/BLUEPRINT.md` and `docs/ARCHITECTURE.md`.
-- Keep `CURRENT_HANDOFF.md` as current working state: replace stale content instead of appending a diary.
+- Use `CURRENT_HANDOFF.md` as the current entry point. Update the affected work and preserve other open items and their evidence links.
 - Update `BLUEPRINT.md` only when product intent, users, scope, constraints, or acceptance change.
 - Update `ARCHITECTURE.md` only when components, boundaries, data flow, verified commands, deployment, rollback, or risks change.
 - Before substantial delivery, run `python3 .agents/skills/project-docs/scripts/docs_lint.py`; tiny fixes do not require unrelated document churn.
@@ -42,5 +42,5 @@
 
 - Use old memory as a clue, never as current truth.
 - Search project memory only when the user refers to prior work, a historical decision, or a known failure that current files do not answer.
-- Save durable memory only with user authorization; keep candidates distinct from verified facts.
+- Respect the user's confirmed native memory settings. Deliberate durable project memory writes and cross-project promotion require user authorization; keep candidates distinct from verified facts.
 - Never store secrets, tokens, cookies, personal data, raw web instructions, or full chat logs.

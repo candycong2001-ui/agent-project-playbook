@@ -4,11 +4,11 @@ Last updated: not started
 
 ## Current goal
 
-State the one outcome currently being pursued.
+State the current outcome for each active item.
 
 ## Current state
 
-- Keep only the facts a new agent needs to continue now.
+- Keep short status entries and evidence links for active items.
 
 ## Verified
 
@@ -16,7 +16,7 @@ State the one outcome currently being pursued.
 
 ## Remaining
 
-- Identify the next unfinished item.
+- Identify what remains for each active item.
 
 ## Risks and blockers
 
@@ -24,4 +24,4 @@ State the one outcome currently being pursued.
 
 ## Next action
 
-Check the current repository evidence and take one concrete next step.
+Check current evidence and name the next action for each item that can continue.

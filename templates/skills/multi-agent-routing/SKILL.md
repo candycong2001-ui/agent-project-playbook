@@ -14,7 +14,7 @@ description: Decide whether and how a lead agent should delegate independent wor
 ## Worker contract
 
 1. State the bounded objective, owned files or surface, expected artifact, evidence required, and stop conditions.
-2. Match capability and reasoning depth to the task; stronger reasoning does not grant broader permissions.
+2. Match capability and reasoning depth to the task; stronger reasoning does not grant broader permissions. Use suitable host defaults or inheritance. If no suitable configuration is available, the lead takes over or replans.
 3. Workers do not create more workers or expand scope. Conflicts and higher-risk actions return to the lead.
 4. The lead verifies material claims against current files, tests, or real output before adopting them.
 5. Deployment, deletion, credentials, external writes, and final Git delivery remain under lead review and user authorization where required.
